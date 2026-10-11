@@ -1,0 +1,23 @@
+# 대용량 원자료(재생성 가능: scripts/ 참고)
+data/raw/
+data/osm_raw.json
+data/osm_parks.json
+data/neis_schools.json
+data/parks_osan.json
+data/gbis_stops.json
+data/schools_need_coords.json
+
+# 로컬 미리보기·임시 파일
+docs/deck-preview/
+.DS_Store
+__pycache__/
+*.pyc
+
+# 비밀 값은 절대 커밋하지 않음 (스크립트는 환경변수로만 키를 받음)
+.env
+*.key
+
+# 앱이 읽지 않는 부가 데이터
+data/osm_bus_routes.json
+data/neis_osan_schools.json
+data/osan_dong_pop.csv
