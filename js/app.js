@@ -1,5 +1,5 @@
 import { CENTER as SAMPLE_CENTER, YEARS, COMPLEXES as SAMPLE_COMPLEXES, FACILITIES as SAMPLE_FAC } from "./data.js";
-import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=bundle1";
+import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=bundle2";
 
 // 실제 시설(OSM 기반, scripts/build_data.py 산출). 없으면 샘플 사용.
 let FACILITIES = SAMPLE_FAC, facSource = "샘플";
@@ -153,7 +153,8 @@ function renderPanel(res, base) {
   $("#yearLabel").textContent = state.year;
   $("#kHH").textContent = res.hh.toLocaleString();
   $("#kTotal").textContent = res.summary.total.toFixed(0);
-  $("#kRisky").textContent = `${res.risky}곳`;
+  $("#kSchoolOver").textContent = `${res.schoolOver}곳`;
+  $("#kBusOver").textContent = `${res.busOver}곳`;
   const d = res.summary.total - base.summary.total;
   const el = $("#kDelta");
   el.textContent = Math.abs(d) > 0.05 ? `${d < 0 ? "▼" : "▲"}${Math.abs(d).toFixed(1)}` : "";

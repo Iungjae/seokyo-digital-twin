@@ -199,3 +199,9 @@ details[open] > summary::before { transform: rotate(90deg); }
   .hud-year { left: 56px; padding: 6px 12px 8px; } .hud-year b { font-size: 22px; }
   .hud-legend { width: 160px; bottom: 26px; }
 }
+
+/* 기준 초과 단지(학교/버스 분리 표기) */
+.kpi-split .split { display: flex; gap: 10px; margin-top: 4px; align-items: baseline; }
+.kpi-split .split > span { font-size: 12.5px; color: var(--mute); font-weight: 500; white-space: nowrap; }
+.kpi-split .split b { display: inline; margin: 0; font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.kpi-split .flag { display: block; margin-top: 2px; font-style: normal; font-size: 11.5px; color: var(--faint); }

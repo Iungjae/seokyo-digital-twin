@@ -154,8 +154,11 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
     year, items: cs, pop,
     hh: active.reduce((s, x) => s + x.hh, 0),
     summary: { total: avg("total"), school: avg("schoolScore"), bus: avg("busScore"), park: avg("parkScore") },
-    // 기준 초과 단지: 학교(배정 학교 정원) 또는 버스(도보권 노선 첨두 수송력) 이용률이 100%를 넘는 단지.
-    // 임의의 점수 임계값(예: 50점 이상) 대신 물리적 수용 한계를 기준으로 삼는다. 키 이름 risky는 유지.
+    // 기준 초과 단지: 배정 학교 정원 또는 도보권 버스 노선 첨두 수송력 대비 이용률이 100%를 넘는 단지.
+    // 임의의 점수 임계값(예: 50점 이상) 대신 물리적 수용 한계를 기준으로 삼는다.
+    // 학교 초과는 학급당 정원 가정(초 25·중고 29명)에 민감하므로 학교/버스를 나눠 돌려준다. risky = 둘 중 하나라도.
+    schoolOver: active.filter((x) => ["elem", "mid", "high"].some((lv) => (x.school[lv] && x.school[lv].over) > 0.0005)).length,
+    busOver: active.filter((x) => x.bus.util > 1).length,
     risky: active.filter((x) => ["elem", "mid", "high"].some((lv) => (x.school[lv] && x.school[lv].over) > 0.0005) || x.bus.util > 1).length,
     schools: open.filter((f) => f.type === "school")
       .map((f) => ({ id: f.id, name: f.name, level: f.level, load: schoolLoad[f.id] || 0, cap: f.cap, util: (schoolLoad[f.id] || 0) / f.cap })),

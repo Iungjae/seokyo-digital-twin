@@ -6,7 +6,7 @@
 <title>입주 전에 인프라 부족을 알려주는 ‘세교 디지털트윈’</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="style.css?v=bundle1">
+<link rel="stylesheet" href="style.css?v=bundle2">
 </head>
 <body>
 <aside id="panel">
@@ -26,7 +26,11 @@
   <section class="kpis" aria-label="핵심 지표">
     <div class="kpi"><small>입주 세대</small><b id="kHH">-</b></div>
     <div class="kpi"><small>종합 부족도</small><b><span id="kTotal">-</span><em id="kDelta"></em></b></div>
-    <div class="kpi" title="학교 또는 버스 첨두 이용률이 100%를 넘는 단지 수. 학교 정원(학급당 초 25·중고 29명 가정)과 버스 가정에 민감합니다(정원 배율 1.1이면 2027년 8곳→4곳)."><small>기준 초과 단지</small><b id="kRisky">-</b></div>
+    <div class="kpi kpi-split" title="배정 학교 정원 또는 도보권 버스 노선의 첨두 이용률이 100%를 넘는 단지 수. 학교는 정원 가정(학급당 초 25·중고 29명)에 민감하고, 버스는 이용객·승객 가정에 따라 달라집니다.">
+      <small>기준 초과 단지</small>
+      <span class="split"><span>학교 <b id="kSchoolOver">-</b></span><span>버스 <b id="kBusOver">-</b></span></span>
+      <em class="flag">학교는 정원 가정 의존</em>
+    </div>
   </section>
 
   <div class="seg" id="layers" role="group" aria-label="지도 색상 기준">
@@ -147,6 +151,6 @@
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="js/app.js?v=bundle1"></script>
+<script type="module" src="js/app.js?v=bundle2"></script>
 </body>
 </html>
