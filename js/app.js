@@ -1,5 +1,5 @@
 import { CENTER as SAMPLE_CENTER, YEARS, COMPLEXES as SAMPLE_COMPLEXES, FACILITIES as SAMPLE_FAC } from "./data.js";
-import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=design3";
+import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=bundle1";
 
 // 실제 시설(OSM 기반, scripts/build_data.py 산출). 없으면 샘플 사용.
 let FACILITIES = SAMPLE_FAC, facSource = "샘플";
