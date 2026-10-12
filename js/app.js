@@ -1,5 +1,5 @@
 import { CENTER as SAMPLE_CENTER, YEARS, COMPLEXES as SAMPLE_COMPLEXES, FACILITIES as SAMPLE_FAC } from "./data.js";
-import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=bundle2";
+import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=capture4";
 
 // 실제 시설(OSM 기반, scripts/build_data.py 산출). 없으면 샘플 사용.
 let FACILITIES = SAMPLE_FAC, facSource = "샘플";
@@ -44,7 +44,7 @@ try {
 const DEFAULTS = JSON.parse(JSON.stringify(PARAMS));   // 가정값 패널로 바꾸기 전의 기본 가정(기준선 계산과 "기본으로" 복원에 사용)
 
 const $ = (s) => document.querySelector(s);
-const state = { year: 2026, layer: "total", tool: null, added: [], plan: {}, newCx: [], show: { school: true, park: true, bus: false } };
+const state = { year: 2026, layer: "total", tool: null, added: [], plan: {}, newCx: [], labels: false, show: { school: true, park: true, bus: false } };
 
 // 입주계획 편집: plan[id] = { units, year } 로 기존 단지를 덮어쓰고, newCx 는 사용자가 지도에 추가한 신규 단지.
 // 시나리오 계산에는 이 "유효 단지 목록"을 쓰고, 기준선("현재 계획")은 원본 COMPLEXES 그대로 쓴다.
@@ -76,6 +76,10 @@ const TOOLS = {
 const ICON = { school: "학", bus: "버", park: "공" };   // 목록 표시용 글자
 const PIN = { school: ["학", "#4F46E5"], park: ["공", "#16A34A"], bus: ["버", "#0EA5E9"] };   // [지도 핀 글자, 색]
 const LAYER_KEY = { total: "total", school: "schoolScore", bus: "busScore", park: "parkScore" };
+
+// 주소 파라미터(공유·캡처용): ?year=2027&layer=bus&tab=scenario&add=bus:37.1622,127.0492&labels=1&view=map&focus=schools
+const URLP = new URLSearchParams(location.search);
+if (URLP.get("view") === "map") document.body.classList.add("map-only");   // 패널 숨기고 지도만 표시(캡처용)
 
 const map = L.map("map", { zoomControl: true }).setView(CENTER, 15);
 if (COMPLEXES !== SAMPLE_COMPLEXES) map.fitBounds(COMPLEXES.map((c) => [c.lat, c.lng]), { padding: [60, 60] });
@@ -127,7 +131,10 @@ function draw(res) {
     const score = x[LAYER_KEY[state.layer]];
     L.circle([x.c.lat, x.c.lng], {
       radius: 70 + Math.sqrt(x.hh) * 3.2, color: "#fff", fillColor: color(score), fillOpacity: 0.78, weight: 2.5,
-    }).bindPopup(popup(x)).bindTooltip(`${x.c.name} ${score.toFixed(0)}점`).addTo(complexLayer);
+    }).bindPopup(popup(x)).bindTooltip(
+      state.labels ? `${x.c.name.split("(")[0].replace("오산 세교", "").replace("세교 ", "").slice(0, 11)} ${score.toFixed(0)}` : `${x.c.name} ${score.toFixed(0)}점`,
+      state.labels ? { permanent: true, direction: "top", offset: [0, -4], className: "cx-label" } : {}
+    ).addTo(complexLayer);
   }
   facLayer.clearLayers();
   const all = [...FACILITIES, ...state.added].filter((f) => f.open <= state.year);
@@ -517,9 +524,42 @@ $("#recList").addEventListener("click", (e) => {
   refresh(); renderRec();
 });
 
+// --- 주소 파라미터 적용 ---
+(function applyUrlParams() {
+  const y = +URLP.get("year");
+  if (YEARS.includes(y)) { state.year = y; $("#year").value = y; }
+  const layer = URLP.get("layer");
+  if (LAYER_KEY[layer]) {
+    state.layer = layer;
+    document.querySelectorAll("#layers button").forEach((x) => x.classList.toggle("on", x.dataset.layer === layer));
+  }
+  if (URLP.get("labels") === "1") state.labels = true;
+  if (URLP.get("pins") === "0") { state.show.school = false; state.show.park = false; document.querySelectorAll('#show input[data-show="school"], #show input[data-show="park"]').forEach((c) => { c.checked = false; }); }   // 학교·공원 핀 숨김(캡처용)
+  if (URLP.get("buses") === "1") { state.show.bus = true; const c = document.querySelector('#show input[data-show="bus"]'); if (c) c.checked = true; }
+  // add=bus:37.1622,127.0492;seokyo21:37.1395,127.0425  (시설 종류:위도,경도; 여러 개는 세미콜론)
+  for (const item of (URLP.get("add") || "").split(";").filter(Boolean)) {
+    const [key, pos] = item.split(":"); const [lat, lng] = (pos || "").split(",").map(Number);
+    const t = TOOLS[key]; if (!t || !isFinite(lat) || !isFinite(lng)) continue;
+    const grp = (state.added.at(-1)?.grp || 0) + 1;
+    for (const spec of t.pair || [t]) state.added.push({ ...spec, id: `U${grp}-${state.added.length + 1}`, grp, lat, lng, open: t.open ?? state.year });
+  }
+  // zoom=15&center=37.152,127.048 (지도 확대·중심 지정)
+  const z = +URLP.get("zoom"), [clat, clng] = (URLP.get("center") || "").split(",").map(Number);
+  if (isFinite(z) && z > 0) {
+    // 창 크기가 확정된 뒤(헤드리스·리사이즈 포함)에도 같은 확대·중심이 유지되도록 여러 시점에 적용
+    const applyView = () => { map.invalidateSize({ animate: false }); map.setView(isFinite(clat) && isFinite(clng) ? [clat, clng] : map.getCenter(), z, { animate: false }); };
+    applyView();
+    window.addEventListener("load", applyView);
+    [200, 700, 1500].forEach((ms) => setTimeout(applyView, ms));
+  }
+  const tab = URLP.get("tab");
+  if (tab) { const b = document.querySelector(`#tabs button[data-tab="${tab}"]`); if (b) b.click(); }
+})();
+
 renderPlan();
 renderParams();
 refresh();
+if (URLP.get("focus") === "schools") requestAnimationFrame(() => $("#schoolsBox").scrollIntoView({ block: "center" }));   // 캡처용: 학교 이용률 패널로 스크롤
 // 디버그/검증용
 window.__twin = { state, run, PARAMS, map };
 $("#dataBadge").textContent = `단지: ${cxSource} · 시설: ${facSource} · 학교 배정: ${zoneSource}`;
