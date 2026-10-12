@@ -1,11 +1,11 @@
 import { CENTER as SAMPLE_CENTER, YEARS, COMPLEXES as SAMPLE_COMPLEXES, FACILITIES as SAMPLE_FAC } from "./data.js";
-import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=params2";
+import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=design3";
 
 // 실제 시설(OSM 기반, scripts/build_data.py 산출). 없으면 샘플 사용.
 let FACILITIES = SAMPLE_FAC, facSource = "샘플";
 try {
   const r = await fetch("data/facilities.json", { cache: "no-store" });
-  if (r.ok) { FACILITIES = await r.json(); facSource = "OSM 실제 시설"; }
+  if (r.ok) { FACILITIES = await r.json(); facSource = "OSM·공공데이터"; }
 } catch (e) { /* 샘플 유지 */ }
 
 // 실제 단지(data/complexes.csv). 좌표·입주월(YYYY-MM)이 모두 있는 행만 사용.
@@ -73,7 +73,8 @@ const TOOLS = {
     ],
   },
 };
-const ICON = { school: "🏫", bus: "🚌", park: "🌳" };
+const ICON = { school: "학", bus: "버", park: "공" };   // 목록 표시용 글자
+const PIN = { school: ["학", "#4F46E5"], park: ["공", "#16A34A"], bus: ["버", "#0EA5E9"] };   // [지도 핀 글자, 색]
 const LAYER_KEY = { total: "total", school: "schoolScore", bus: "busScore", park: "parkScore" };
 
 const map = L.map("map", { zoomControl: true }).setView(CENTER, 15);
@@ -85,10 +86,11 @@ const complexLayer = L.layerGroup().addTo(map);
 const facLayer = L.layerGroup().addTo(map);
 
 function color(score) {
-  // 0 초록 → 50 노랑 → 100 빨강
+  // 0 양호(초록) → 50 노랑 → 100 부족(빨강). 범례 그라데이션(#2FB67C, #F5B84B, #E5484D)과 같은 색
   const t = Math.max(0, Math.min(100, score)) / 100;
-  const h = 130 - 130 * t;
-  return `hsl(${h}, 80%, 50%)`;
+  const [c0, c1, c2] = [[47, 182, 124], [245, 184, 75], [229, 72, 77]];
+  const [p, q, u] = t < 0.5 ? [c0, c1, t / 0.5] : [c1, c2, (t - 0.5) / 0.5];
+  return `rgb(${p.map((v, i) => Math.round(v + (q[i] - v) * u)).join(",")})`;
 }
 
 function run(year, withAdded = true) {
@@ -118,13 +120,13 @@ function draw(res) {
   complexLayer.clearLayers();
   for (const x of res.items) {
     if (x.hh <= 0) {
-      L.circle([x.c.lat, x.c.lng], { radius: 60, color: "#475569", weight: 1, dashArray: "3", fillOpacity: 0.1 })
+      L.circle([x.c.lat, x.c.lng], { radius: 60, color: "#98A2B3", weight: 1.5, dashArray: "4", fillColor: "#98A2B3", fillOpacity: 0.12 })
         .bindTooltip(`${x.c.name} (미입주)`).addTo(complexLayer);
       continue;
     }
     const score = x[LAYER_KEY[state.layer]];
     L.circle([x.c.lat, x.c.lng], {
-      radius: 70 + Math.sqrt(x.hh) * 3.2, color: color(score), fillColor: color(score), fillOpacity: 0.55, weight: 2,
+      radius: 70 + Math.sqrt(x.hh) * 3.2, color: "#fff", fillColor: color(score), fillOpacity: 0.78, weight: 2.5,
     }).bindPopup(popup(x)).bindTooltip(`${x.c.name} ${score.toFixed(0)}점`).addTo(complexLayer);
   }
   facLayer.clearLayers();
@@ -132,15 +134,16 @@ function draw(res) {
   for (const f of all) {
     const isNew = !FACILITIES.includes(f);
     if (!isNew && !state.show[f.type]) continue;           // 사용자가 추가한 시설은 항상 표시
+    if (!isNew && f.type === "park" && f.area < 10000 && map.getZoom() < 16) continue;   // 축소 상태에서는 작은 공원(1만㎡ 미만)을 숨겨 핀 겹침을 줄임
     const tip = f.name + (f.level ? ` (${LEVEL_LABEL[f.level]})` : "");
     if (f.type === "bus" && !isNew) {
       // 기존 정류장은 작은 점으로(349개 이모지는 지도를 가림)
-      L.circleMarker([f.lat, f.lng], { radius: 3, color: "#0369a1", weight: 1, fillColor: "#38bdf8", fillOpacity: 0.85, interactive: !state.tool })
+      L.circleMarker([f.lat, f.lng], { radius: 3.5, color: "#fff", weight: 1.2, fillColor: "#0EA5E9", fillOpacity: 0.95, interactive: !state.tool })
         .bindTooltip(tip).addTo(facLayer);
       continue;
     }
     L.marker([f.lat, f.lng], {
-      icon: L.divIcon({ className: "", html: `<div style="font-size:20px;${isNew ? "filter:drop-shadow(0 0 6px #38bdf8)" : ""}">${ICON[f.type]}</div>`, iconSize: [24, 24] }),
+      icon: L.divIcon({ className: "", html: `<div class="pin${isNew ? " new" : ""}" style="--c:${PIN[f.type][1]}">${PIN[f.type][0]}</div>`, iconSize: isNew ? [26, 26] : [22, 22] }),
       interactive: !state.tool,
     }).bindTooltip(tip).addTo(facLayer);
   }
@@ -154,14 +157,16 @@ function renderPanel(res, base) {
   const d = res.summary.total - base.summary.total;
   const el = $("#kDelta");
   el.textContent = Math.abs(d) > 0.05 ? `${d < 0 ? "▼" : "▲"}${Math.abs(d).toFixed(1)}` : "";
-  el.style.color = d < 0 ? "#4ade80" : "#f87171";
+  el.className = d < 0 ? "down" : "up";
+  $("#mapYear").textContent = state.year;
+  $("#legendTitle").textContent = { total: "종합 부족도", school: "학교 부족도", bus: "버스 부족도", park: "공원 부족도" }[state.layer];
 
   const bar = (label, v) => `<div class="bar"><b>${label}</b><span><i style="width:${v}%;background:${color(v)}"></i></span><b>${v.toFixed(0)}</b></div>`;
   $("#bars").innerHTML = bar("학교", res.summary.school) + bar("버스", res.summary.bus) + bar("공원", res.summary.park);
 
   $("#report").innerHTML = buildReport(res, base).map((l) => `<p>${l}</p>`).join("");
   $("#added").innerHTML = state.added
-    .map((f) => `<li>${ICON[f.type]} ${f.name}${f.level ? `(${LEVEL_LABEL[f.level]})` : ""} - ${f.open}년 개통</li>`).join("");
+    .map((f) => `<li>[${ICON[f.type]}] ${f.name}${f.level ? `(${LEVEL_LABEL[f.level]})` : ""} - ${f.open}년 개통</li>`).join("");
   renderSchools(res, base);
   renderTrend();
 }
@@ -173,25 +178,25 @@ function renderSchools(res, base) {
   $("#schoolsBox").innerHTML = rows.map((s) => {
     const b = baseMap.get(s.id);
     const d = b ? s.util - b.util : 0;
-    const dTxt = Math.abs(d) > 0.005 ? ` <em style="color:${d < 0 ? "#4ade80" : "#f87171"}">${d < 0 ? "▼" : "▲"}${Math.abs(d * 100).toFixed(0)}p</em>` : "";
+    const dTxt = Math.abs(d) > 0.005 ? ` <em class="${d < 0 ? "down" : "up"}">${d < 0 ? "▼" : "▲"}${Math.abs(d * 100).toFixed(0)}p</em>` : "";
     const w = Math.min(100, s.util * 100);
-    return `<div class="bar" style="grid-template-columns:130px 1fr 54px"><b title="${s.name}">${s.name.replace("초등학교", "초").replace("중학교", "중").replace("고등학교", "고").slice(0, 14)}</b><span><i style="width:${w}%;background:${color(Math.max(0, (s.util - 0.7) / 0.5 * 100))}"></i></span><b>${(s.util * 100).toFixed(0)}%${dTxt}</b></div>`;
+    return `<div class="bar bar-wide"><b title="${s.name}">${s.name.replace("초등학교", "초").replace("중학교", "중").replace("고등학교", "고").slice(0, 14)}</b><span><i style="width:${w}%;background:${color(Math.max(0, (s.util - 0.7) / 0.5 * 100))}"></i></span><b>${(s.util * 100).toFixed(0)}%${dTxt}</b></div>`;
   }).join("");
 }
 
 function renderTrend() {
   const base = YEARS.map((y) => evaluate(COMPLEXES, FACILITIES, y, DEFAULTS).summary.total);
   const scen = YEARS.map((y) => run(y).summary.total);
-  const W = 300, H = 90, pad = 18, max = Math.max(60, ...base, ...scen);
+  const W = 300, H = 100, pad = 20, max = Math.max(60, ...base, ...scen);
   const px = (i) => pad + (i * (W - pad * 2)) / (YEARS.length - 1);
-  const py = (v) => H - 18 - (v / max) * (H - 30);
+  const py = (v) => H - 20 - (v / max) * (H - 36);
   const path = (arr) => arr.map((v, i) => `${i ? "L" : "M"}${px(i)},${py(v)}`).join(" ");
   $("#trend").innerHTML =
-    `<path d="${path(base)}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4 3"/>` +
-    `<path d="${path(scen)}" fill="none" stroke="#38bdf8" stroke-width="2.5"/>` +
+    `<path d="${path(base)}" fill="none" stroke="#B4BBC8" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round"/>` +
+    `<path d="${path(scen)}" fill="none" stroke="#3B5BDB" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>` +
     YEARS.map((y, i) => `<text x="${px(i)}" y="${H - 4}" text-anchor="middle">${y}</text>` +
-      `<circle cx="${px(i)}" cy="${py(scen[i])}" r="${y === state.year ? 5 : 3}" fill="${y === state.year ? "#fff" : "#38bdf8"}"/>`).join("") +
-    `<text x="${W - 4}" y="10" text-anchor="end">점선=현재 계획 / 실선=시나리오</text>`;
+      `<circle cx="${px(i)}" cy="${py(scen[i])}" r="${y === state.year ? 5.5 : 3.2}" fill="${y === state.year ? "#3B5BDB" : "#fff"}" stroke="#3B5BDB" stroke-width="${y === state.year ? 2.5 : 1.8}"/>`).join("") +
+    `<text class="legend" x="${W - 4}" y="10" text-anchor="end">점선 현재 계획 · 실선 시나리오</text>`;
 }
 
 function refresh() {
@@ -245,6 +250,16 @@ $("#undo").addEventListener("click", () => {
   refresh();
 });
 $("#reset").addEventListener("click", () => { state.added = []; state.plan = {}; state.newCx = []; renderPlan(); refresh(); });
+
+map.on("zoomend", () => refresh());
+
+// --- 탭 전환 ---
+$("#tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-tab]"); if (!b) return;
+  document.querySelectorAll("#tabs button").forEach((x) => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".pane").forEach((p) => { p.hidden = p.dataset.pane !== b.dataset.tab; });
+  $("#panel").scrollTo({ top: Math.min($("#panel").scrollTop, $("#tabs").offsetTop - 0), behavior: "instant" });
+});
 
 // --- 입주계획 편집 ---
 // 기존 단지의 세대수·입주 연도를 바꾸거나(0세대=제외) 신규 단지를 추가해 입주계획 변경의 영향을 본다.
@@ -479,11 +494,11 @@ function renderRec() {
   if ($("#recGrid").checked && max > 0.05) {
     for (const c of cands) {
       if (c.gain <= 0.02) continue;
-      L.circleMarker([c.lat, c.lng], { radius: 6, stroke: false, fillColor: "#22c55e", fillOpacity: Math.max(0.08, Math.min(0.7, (c.gain / max) * 0.7)), interactive: false }).addTo(recLayer);
+      L.circleMarker([c.lat, c.lng], { radius: 6, stroke: false, fillColor: "#3B5BDB", fillOpacity: Math.max(0.06, Math.min(0.55, (c.gain / max) * 0.55)), interactive: false }).addTo(recLayer);
     }
   }
   top.forEach((c, i) => L.marker([c.lat, c.lng], {
-    icon: L.divIcon({ className: "", html: `<div style="width:26px;height:26px;border-radius:50%;background:#f59e0b;color:#111;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 0 8px #000">${i + 1}</div>`, iconSize: [26, 26] }),
+    icon: L.divIcon({ className: "", html: `<div class="rec-pin">${i + 1}</div>`, iconSize: [28, 28] }),
     interactive: false,
   }).addTo(recLayer));
 }
