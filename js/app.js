@@ -108,9 +108,9 @@ function popup(x) {
   const lv = (k) => {
     const s = x.school[k];
     if (s.unassigned) return "통학구역 미확정";
-    return s.f ? `${s.f.name} ${Math.round(s.d)}m, 정원 ${s.over ? "+" + (s.over * 100).toFixed(0) + "%" : "여유"}` : "없음";
+    return s.f ? `${s.f.name}<small>${Math.round(s.d)}m · 정원 ${s.over ? "+" + (s.over * 100).toFixed(0) + "%" : "여유"}</small>` : "없음";
   };
-  return `<div class="pop"><b>${x.c.name} · ${x.hh.toLocaleString()}세대</b><table>
+  return `<div class="pop"><b>${x.c.name} <span class="nw">· ${x.hh.toLocaleString()}세대</span></b><table>
     <tr><td>종합</td><td>${x.total.toFixed(0)}점</td></tr>
     <tr><td>학교</td><td>${x.schoolScore.toFixed(0)}점</td></tr>
     <tr><td>초등</td><td>${lv("elem")}</td></tr>
@@ -118,7 +118,7 @@ function popup(x) {
     <tr><td>고등</td><td>${lv("high")}</td></tr>
     <tr><td>버스</td><td>${x.busScore.toFixed(0)}점 (${x.bus.f ? Math.round(x.bus.d) + "m" : "없음"})</td></tr>
     <tr><td>공원</td><td>${x.parkScore.toFixed(0)}점</td></tr>
-    ${x.parkTier.map((tr) => `<tr><td>&nbsp;&nbsp;${tr.label}</td><td>${isFinite(tr.d) ? Math.round(tr.d) + "m" : "없음"} / 기준 ${tr.reach}m</td></tr>`).join("")}
+    ${x.parkTier.map((tr) => `<tr class="sub"><td>${tr.label}</td><td>${isFinite(tr.d) ? Math.round(tr.d) + "m" : "없음"} / 기준 ${tr.reach}m</td></tr>`).join("")}
   </table></div>`;
 }
 
@@ -133,7 +133,7 @@ function draw(res) {
     const score = x[LAYER_KEY[state.layer]];
     L.circle([x.c.lat, x.c.lng], {
       radius: 70 + Math.sqrt(x.hh) * 3.2, color: "#fff", fillColor: color(score), fillOpacity: 0.78, weight: 2.5,
-    }).bindPopup(popup(x)).bindTooltip(
+    }).bindPopup(popup(x), { minWidth: 260, maxWidth: 320 }).bindTooltip(
       state.labels ? `${x.c.name.split("(")[0].replace("오산 세교", "").replace("세교 ", "").slice(0, 11)} ${score.toFixed(0)}` : `${x.c.name} ${score.toFixed(0)}점`,
       state.labels ? { permanent: true, direction: "top", offset: [0, -4], className: "cx-label" } : {}
     ).addTo(complexLayer);
@@ -174,7 +174,11 @@ function renderPanel(res, base) {
   const bar = (label, v) => `<div class="bar"><b>${label}</b><span><i style="width:${v}%;background:${color(v)}"></i></span><b>${v.toFixed(0)}</b></div>`;
   $("#bars").innerHTML = bar("학교", res.summary.school) + bar("버스", res.summary.bus) + bar("공원", res.summary.park);
 
-  $("#report").innerHTML = buildReport(res, base).map((l) => `<p>${l}</p>`).join("");
+  $("#report").innerHTML = buildReport(res, base).map((l) => {
+    const m = l.match(/^(우선순위 \d+): (.+?) \((\d+점)\) - (.*)$/);
+    return m ? `<p class="prio"><b>${m[1]} · ${m[2]}</b> <span class="nw">${m[3]}</span><span class="causes">${m[4].split(", ").join("<br>")}</span></p>`
+      : `<p>${l.replace(/(\S+\(\d+점\)\S*)/g, '<span class="nw">$1</span>')}</p>`;   // "공원(11점)입니다." 같은 어절이 괄호 앞뒤로 갈라지지 않게
+  }).join("");
   $("#added").innerHTML = state.added
     .map((f) => `<li>[${ICON[f.type]}] ${f.name}${f.level ? `(${LEVEL_LABEL[f.level]})` : ""} - ${f.open}년 개통</li>`).join("");
   renderSchools(res, base);
@@ -280,7 +284,7 @@ function baseYear(c) { return c.phases.length ? c.phases[0][0] : 2030; }
 
 function renderPlan() {
   const row = (id, name, units, year, edited, removable) => `<div class="plan-row${edited ? " edited" : ""}" data-id="${id}">
-    <span class="plan-name" title="${name}">${name.replace(/\(.*$/, "").slice(0, 14)}</span>
+    <span class="plan-name" title="${name}">${name.replace(/\(.*$/, "")}</span>
     <input type="number" min="0" max="5000" step="50" value="${units}" data-k="units" aria-label="${name} 세대수">
     <select data-k="year" aria-label="${name} 입주 연도">${PLAN_YEARS.map((y) => `<option value="${y}"${y === year ? " selected" : ""}>${y}</option>`).join("")}</select>
     ${removable ? '<button data-k="del" aria-label="삭제">✕</button>' : "<i></i>"}</div>`;
@@ -383,10 +387,11 @@ function renderCompare() {
   if (dirty) rows.push({ name: "현재 작업", cls: "cur", r: run(year) });
   scenarios.forEach((sc, i) => rows.push({ name: sc.name, i, r: evalScenario(sc, year), tip: Object.keys(sc.params || {}).length ? `가정 변경: ${Object.entries(sc.params).map(([k, v]) => `${k}=${v}`).join(", ")}` : "" }));
   const f = (v) => v.toFixed(1);
-  el.innerHTML = `<table><tr><th>${year}년</th><th>종합</th><th>Δ</th><th>학교</th><th>버스</th><th>공원</th><th>세대</th><th></th></tr>` +
+  el.innerHTML = `<table><tr><th>${year}년</th><th>종합</th><th>Δ</th><th>학교</th><th>버스</th><th>공원</th><th>세대</th></tr>` +
     rows.map((x) => { const d = x.r.summary.total - base; const dc = Math.abs(d) < 0.05 ? "" : d > 0 ? "up" : "down";
-      return `<tr class="${x.cls || ""}" title="${x.tip || ""}"><td>${x.name}</td><td>${f(x.r.summary.total)}</td><td class="${dc}">${dc ? (d > 0 ? "+" : "") + f(d) : "–"}</td><td>${f(x.r.summary.school)}</td><td>${f(x.r.summary.bus)}</td><td>${f(x.r.summary.park)}</td><td>${x.r.hh.toLocaleString()}</td>
-      <td>${x.i === undefined ? "" : `<button data-sc="load" data-i="${x.i}">불러오기</button><button data-sc="del" data-i="${x.i}" aria-label="삭제">✕</button>`}</td></tr>`; }).join("") + "</table>";
+      // 저장된 시나리오는 이름·버튼을 머리줄로 올리고 숫자 행 첫 칸은 비워 둠(좁은 화면에서도 이름이 갈라지지 않게)
+      const head = x.i === undefined ? "" : `<tr class="sc-head" title="${x.tip || ""}"><td colspan="7"><b>${x.name}</b><button data-sc="load" data-i="${x.i}">불러오기</button><button data-sc="del" data-i="${x.i}">삭제</button></td></tr>`;
+      return head + `<tr class="${x.cls || ""}" title="${x.tip || ""}"><td>${x.i === undefined ? x.name : ""}</td><td>${f(x.r.summary.total)}</td><td class="${dc}">${dc ? (d > 0 ? "+" : "") + f(d) : "–"}</td><td>${f(x.r.summary.school)}</td><td>${f(x.r.summary.bus)}</td><td>${f(x.r.summary.park)}</td><td>${x.r.hh.toLocaleString()}</td></tr>`; }).join("") + "</table>";
 }
 
 $("#scSave").addEventListener("click", () => {
@@ -496,7 +501,7 @@ function renderRec() {
   $("#recList").innerHTML = top.map((c, i) => {
     const nc = nearestComplex(c, year);
     return `<li><b>${i + 1}위</b> <span class="gain">종합 −${c.gain.toFixed(2)}점</span><br>
-      ${nc.name.slice(0, 16)} 인근 ${nc.d}m · 학교 −${c.dSchool.toFixed(2)} 버스 −${c.dBus.toFixed(2)} 공원 −${c.dPark.toFixed(2)}<br>수요 가중 평균 접근거리 ${c.dDist >= 0 ? "−" : "+"}${Math.abs(Math.round(c.dDist))}m
+      ${nc.name.replace(/\(.*$/, "")} 인근 <span class="nw">${nc.d}m</span><br><span class="nw">학교 −${c.dSchool.toFixed(2)}</span> · <span class="nw">버스 −${c.dBus.toFixed(2)}</span> · <span class="nw">공원 −${c.dPark.toFixed(2)}</span><br>수요 가중 평균 접근거리 <span class="nw">${c.dDist >= 0 ? "−" : "+"}${Math.abs(Math.round(c.dDist))}m</span>
       <div class="acts"><button data-rec="view" data-i="${i}">지도에서 보기</button><button data-rec="add" data-i="${i}">시나리오에 추가</button></div></li>`;
   }).join("");
   if (!cands.length) return;

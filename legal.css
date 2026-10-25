@@ -9,6 +9,7 @@ body {
   margin: 0; background: var(--bg); color: var(--text);
   font: 15px/1.7 "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   letter-spacing: -0.01em; -webkit-font-smoothing: antialiased;
+  word-break: keep-all; overflow-wrap: break-word;
 }
 main { max-width: 720px; margin: 0 auto; padding: 32px 16px 56px; }
 .back { display: inline-block; margin-bottom: 20px; color: var(--accent-ink); font-weight: 600; text-decoration: none; }
