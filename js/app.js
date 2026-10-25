@@ -105,22 +105,28 @@ function run(year, withAdded = true) {
 }
 
 function popup(x) {
-  const lv = (k) => {
+  // 분야(학교·버스·공원)마다 머리줄(이름 + 점수)을 두고, 세부 항목은 모두 같은 들여쓰기·같은 열에서 시작
+  const school = (k) => {
     const s = x.school[k];
     if (s.unassigned) return "통학구역 미확정";
-    return s.f ? `${s.f.name}<small>${Math.round(s.d)}m · 정원 ${s.over ? "+" + (s.over * 100).toFixed(0) + "%" : "여유"}</small>` : "없음";
+    return s.f ? `${s.f.name}<small>${Math.round(s.d)}m · 정원 ${s.over ? "+" + (s.over * 100).toFixed(0) + "% 초과" : "여유"}</small>` : "없음";
   };
-  return `<div class="pop"><b>${x.c.name} <span class="nw">· ${x.hh.toLocaleString()}세대</span></b><table>
-    <tr><td>종합</td><td>${x.total.toFixed(0)}점</td></tr>
-    <tr><td>학교</td><td>${x.schoolScore.toFixed(0)}점</td></tr>
-    <tr><td>초등</td><td>${lv("elem")}</td></tr>
-    <tr><td>중등</td><td>${lv("mid")}</td></tr>
-    <tr><td>고등</td><td>${lv("high")}</td></tr>
-    <tr><td>버스</td><td>${x.busScore.toFixed(0)}점 (${x.bus.f ? Math.round(x.bus.d) + "m" : "없음"})</td></tr>
-    <tr><td>공원</td><td>${x.parkScore.toFixed(0)}점</td></tr>
-    ${x.parkTier.map((tr) => `<tr class="sub"><td>${tr.label}</td><td>${isFinite(tr.d) ? Math.round(tr.d) + "m" : "없음"} / 기준 ${tr.reach}m</td></tr>`).join("")}
+  const head = (label, v, cls = "") => `<tr class="grp${cls}"><th colspan="2">${label}</th><td class="sc"><i style="background:${color(v)}"></i>${v.toFixed(0)}점</td></tr>`;
+  const item = (label, val) => `<tr class="item"><td>${label}</td><td colspan="2">${val}</td></tr>`;
+  const routes = x.bus.nRoutes ? `${x.bus.nRoutes}개<small>첨두 이용률 ${(x.bus.util * 100).toFixed(0)}% (가정 기반)</small>` : "없음";
+  return `<div class="pop"><div class="pop-head"><b>${x.c.name}</b><span>${x.hh.toLocaleString()}세대 입주</span></div><table>
+    ${head("종합 부족도", x.total, " total")}
+    ${head("학교", x.schoolScore)}
+    ${item("초등", school("elem"))}${item("중등", school("mid"))}${item("고등", school("high"))}
+    ${head("버스", x.busScore)}
+    ${item("최근접 정류장", x.bus.f ? Math.round(x.bus.d) + "m" : "없음")}${item("도보권 노선", routes)}
+    ${head("공원", x.parkScore)}
+    ${x.parkTier.map((tr) => item(tr.label, `${isFinite(tr.d) ? Math.round(tr.d) + "m" : "없음"} <small class="in">/ 기준 ${tr.reach}m</small>`)).join("")}
   </table></div>`;
 }
+
+const narrow = () => matchMedia("(max-width: 900px)").matches;   // style.css의 좁은 화면 기준과 같음
+map.on("popupopen popupclose", (e) => $("#stage").classList.toggle("pop-open", e.type === "popupopen"));
 
 function draw(res) {
   complexLayer.clearLayers();
@@ -131,9 +137,10 @@ function draw(res) {
       continue;
     }
     const score = x[LAYER_KEY[state.layer]];
+    // 팝업: 넓은 화면은 위쪽 연도 상자(HUD) 아래로 자동 이동, 좁은 화면은 지도 높이에 맞춰 안에서 스크롤(HUD는 팝업이 열린 동안 숨김)
     L.circle([x.c.lat, x.c.lng], {
       radius: 70 + Math.sqrt(x.hh) * 3.2, color: "#fff", fillColor: color(score), fillOpacity: 0.78, weight: 2.5,
-    }).bindPopup(popup(x), { minWidth: 260, maxWidth: 320 }).bindTooltip(
+    }).bindPopup(popup(x), narrow() ? { minWidth: 260, maxWidth: 300, maxHeight: Math.max(200, map.getSize().y - 70), autoPanPaddingTopLeft: [48, 10], autoPanPaddingBottomRight: [8, 8] } : { minWidth: 300, maxWidth: 340, autoPanPaddingTopLeft: [20, 110] }).bindTooltip(
       state.labels ? `${x.c.name.split("(")[0].replace("오산 세교", "").replace("세교 ", "").slice(0, 11)} ${score.toFixed(0)}` : `${x.c.name} ${score.toFixed(0)}점`,
       state.labels ? { permanent: true, direction: "top", offset: [0, -4], className: "cx-label" } : {}
     ).addTo(complexLayer);

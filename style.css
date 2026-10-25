@@ -185,13 +185,22 @@ details[open] > summary::before { transform: rotate(90deg); }
 .leaflet-popup-content-wrapper { border-radius: var(--r-box); box-shadow: var(--shadow-float); }
 .leaflet-popup-content { margin: 14px 16px; font: 13px/1.55 "Pretendard Variable", Pretendard, sans-serif; color: var(--text); }
 .leaflet-tooltip { border: 0; border-radius: var(--r-sm); padding: 5px 9px; font: 600 12.5px "Pretendard Variable", Pretendard, sans-serif; color: var(--text); box-shadow: var(--shadow-float); }
-.pop > b { display: block; margin-bottom: 6px; font-size: 14.5px; line-height: 1.4; }
-.pop table { border-collapse: collapse; font-size: 13px; }
-.pop td { padding: 3px 14px 3px 0; vertical-align: top; }
-.pop td:first-child { color: var(--mute); white-space: nowrap; }
-.pop td small { display: block; font-size: 12px; color: var(--mute); }
-.pop tr.sub td { font-size: 12.5px; white-space: nowrap; }
-.pop tr.sub td:first-child { padding-left: 10px; }
+/* 단지 팝업: 분야 머리줄(왼쪽 0, 점수는 오른쪽 끝) / 세부 항목(모두 12px 들여쓰기, 값은 같은 열) */
+.pop-head { margin-bottom: 6px; }
+.pop-head b { display: block; font-size: 15px; font-weight: 700; line-height: 1.35; }
+.pop-head span { font-size: 12.5px; color: var(--mute); }
+.pop table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pop tr.grp th, .pop tr.grp td { padding: 9px 0 3px; border-top: 1px solid var(--line); text-align: left; font-weight: 700; color: var(--text); }
+.pop tr.grp.total th, .pop tr.grp.total td { padding: 8px 0 10px; font-size: 14px; }
+.pop tr.grp.total + tr.grp th, .pop tr.grp.total + tr.grp td { border-top-color: var(--line-strong); }
+.pop td.sc { width: 1%; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pop td.sc i { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; vertical-align: 1px; }
+.pop tr.item td { padding: 3px 0; vertical-align: top; }
+.pop tr.item td:first-child { padding: 3px 14px 3px 12px; color: var(--mute); white-space: nowrap; }
+.pop tr.item small { display: block; font-size: 12px; color: var(--mute); }
+.pop tr.item small.in { display: inline; }
+.pop tr.item:last-child td { padding-bottom: 0; }
+.leaflet-popup-content.leaflet-popup-scrolled { padding-right: 12px; border: 0; }   /* 좁은 화면에서 스크롤바가 점수를 덮지 않게 */
 
 .hud { position: absolute; z-index: 500; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-box); box-shadow: var(--shadow-float); pointer-events: none; }
 .hud small { display: block; font-size: 12px; font-weight: 600; color: var(--mute); }
@@ -213,6 +222,7 @@ details[open] > summary::before { transform: rotate(90deg); }
   #stage { height: 44vh; flex: none; }
   .hud-year { left: 56px; padding: 6px 12px 8px; } .hud-year b { font-size: 22px; }
   .hud-legend { width: 160px; bottom: 26px; }
+  #stage.pop-open .hud { display: none; }
 }
 @media (max-width: 480px) {
   .kpis { grid-template-columns: 1fr 1fr; }
