@@ -74,14 +74,16 @@ const TOOLS = {
   },
 };
 const ICON = { school: "학", bus: "버", park: "공" };   // 목록 표시용 글자
-const PIN = { school: ["학", "#4F46E5"], park: ["공", "#16A34A"], bus: ["버", "#0EA5E9"] };   // [지도 핀 글자, 색]
+const PIN_INK = "#3A4150", PIN_NEW = "#3B5BDB";   // 기존 시설은 중립색(점수 색과 겹치지 않게), 사용자가 추가한 시설은 강조색
+const PIN = { school: ["학", PIN_INK], park: ["공", PIN_INK], bus: ["버", PIN_INK] };   // [지도 핀 글자, 색]
 const LAYER_KEY = { total: "total", school: "schoolScore", bus: "busScore", park: "parkScore" };
 
 // 주소 파라미터(공유·캡처용): ?year=2027&layer=bus&tab=scenario&add=bus:37.1622,127.0492&labels=1&view=map&focus=schools
 const URLP = new URLSearchParams(location.search);
 if (URLP.get("view") === "map") document.body.classList.add("map-only");   // 패널 숨기고 지도만 표시(캡처용)
 
-const map = L.map("map", { zoomControl: true }).setView(CENTER, 15);
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const map = L.map("map", { zoomControl: true, zoomAnimation: !reduceMotion, fadeAnimation: !reduceMotion, markerZoomAnimation: !reduceMotion }).setView(CENTER, 15);
 if (COMPLEXES !== SAMPLE_COMPLEXES) map.fitBounds(COMPLEXES.map((c) => [c.lat, c.lng]), { padding: [60, 60] });
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "&copy; OpenStreetMap contributors", maxZoom: 19,
@@ -145,12 +147,12 @@ function draw(res) {
     const tip = f.name + (f.level ? ` (${LEVEL_LABEL[f.level]})` : "");
     if (f.type === "bus" && !isNew) {
       // 기존 정류장은 작은 점으로(349개 이모지는 지도를 가림)
-      L.circleMarker([f.lat, f.lng], { radius: 3.5, color: "#fff", weight: 1.2, fillColor: "#0EA5E9", fillOpacity: 0.95, interactive: !state.tool })
+      L.circleMarker([f.lat, f.lng], { radius: 3.5, color: "#fff", weight: 1.2, fillColor: PIN_INK, fillOpacity: 0.85, interactive: !state.tool })
         .bindTooltip(tip).addTo(facLayer);
       continue;
     }
     L.marker([f.lat, f.lng], {
-      icon: L.divIcon({ className: "", html: `<div class="pin${isNew ? " new" : ""}" style="--c:${PIN[f.type][1]}">${PIN[f.type][0]}</div>`, iconSize: isNew ? [26, 26] : [22, 22] }),
+      icon: L.divIcon({ className: "", html: `<div class="pin${isNew ? " new" : ""}" style="--c:${isNew ? PIN_NEW : PIN[f.type][1]}">${PIN[f.type][0]}</div>`, iconSize: isNew ? [26, 26] : [22, 22] }),
       interactive: !state.tool,
     }).bindTooltip(tip).addTo(facLayer);
   }
@@ -264,7 +266,7 @@ map.on("zoomend", () => refresh());
 // --- 탭 전환 ---
 $("#tabs").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-tab]"); if (!b) return;
-  document.querySelectorAll("#tabs button").forEach((x) => x.classList.toggle("on", x === b));
+  document.querySelectorAll("#tabs button").forEach((x) => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", x === b); });
   document.querySelectorAll(".pane").forEach((p) => { p.hidden = p.dataset.pane !== b.dataset.tab; });
   $("#panel").scrollTo({ top: Math.min($("#panel").scrollTop, $("#tabs").offsetTop - 0), behavior: "instant" });
 });
