@@ -169,8 +169,8 @@ function renderPanel(res, base) {
   $("#yearLabel").textContent = state.year;
   $("#kHH").textContent = res.hh.toLocaleString();
   $("#kTotal").textContent = res.summary.total.toFixed(0);
-  $("#kSchoolOver").textContent = `${res.schoolOver}곳`;
-  $("#kBusOver").textContent = `${res.busOver}곳`;
+  $("#kSchoolOver").textContent = res.schoolOver;
+  $("#kBusOver").textContent = res.busOver;
   const d = res.summary.total - base.summary.total;
   const el = $("#kDelta");
   el.textContent = Math.abs(d) > 0.05 ? `${d < 0 ? "▼" : "▲"}${Math.abs(d).toFixed(1)}` : "";
