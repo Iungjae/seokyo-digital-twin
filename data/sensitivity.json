@@ -1,0 +1,199 @@
+{
+ "school": [
+  {
+   "elem": 0.21,
+   "cap": 0.9,
+   "over": 10,
+   "maru": 211,
+   "grade": "부족"
+  },
+  {
+   "elem": 0.21,
+   "cap": 1,
+   "over": 9,
+   "maru": 190,
+   "grade": "부족"
+  },
+  {
+   "elem": 0.21,
+   "cap": 1.1,
+   "over": 4,
+   "maru": 173,
+   "grade": "부족"
+  },
+  {
+   "elem": 0.3,
+   "cap": 0.9,
+   "over": 10,
+   "maru": 265,
+   "grade": "부족"
+  },
+  {
+   "elem": 0.3,
+   "cap": 1,
+   "over": 9,
+   "maru": 238,
+   "grade": "부족"
+  },
+  {
+   "elem": 0.3,
+   "cap": 1.1,
+   "over": 5,
+   "maru": 217,
+   "grade": "부족"
+  },
+  {
+   "elem": 0.39,
+   "cap": 0.9,
+   "over": 10,
+   "maru": 318,
+   "grade": "부족"
+  },
+  {
+   "elem": 0.39,
+   "cap": 1,
+   "over": 9,
+   "maru": 287,
+   "grade": "부족"
+  },
+  {
+   "elem": 0.39,
+   "cap": 1.1,
+   "over": 5,
+   "maru": 261,
+   "grade": "부족"
+  }
+ ],
+ "rampOff": {
+  "over": 10,
+  "hh": 8426,
+  "total": 24.8
+ },
+ "bus": [
+  {
+   "maxLoad": 0.3,
+   "catch": 300,
+   "over": 0,
+   "top": "C3번 52%"
+  },
+  {
+   "maxLoad": 0.3,
+   "catch": 400,
+   "over": 0,
+   "top": "8번 58%"
+  },
+  {
+   "maxLoad": 0.3,
+   "catch": 600,
+   "over": 0,
+   "top": "8번 58%"
+  },
+  {
+   "maxLoad": 0.4,
+   "catch": 300,
+   "over": 0,
+   "top": "C3번 68%"
+  },
+  {
+   "maxLoad": 0.4,
+   "catch": 400,
+   "over": 0,
+   "top": "8번 77%"
+  },
+  {
+   "maxLoad": 0.4,
+   "catch": 600,
+   "over": 0,
+   "top": "8번 77%"
+  },
+  {
+   "maxLoad": 0.5,
+   "catch": 300,
+   "over": 0,
+   "top": "C3번 84%"
+  },
+  {
+   "maxLoad": 0.5,
+   "catch": 400,
+   "over": 0,
+   "top": "8번 96%"
+  },
+  {
+   "maxLoad": 0.5,
+   "catch": 600,
+   "over": 0,
+   "top": "8번 96%"
+  },
+  {
+   "maxLoad": 0.6,
+   "catch": 300,
+   "over": 0,
+   "top": "C3번 99%"
+  },
+  {
+   "maxLoad": 0.6,
+   "catch": 400,
+   "over": 1,
+   "top": "8번 116%"
+  },
+  {
+   "maxLoad": 0.6,
+   "catch": 600,
+   "over": 1,
+   "top": "8번 116%"
+  },
+  {
+   "maxLoad": 0.7,
+   "catch": 300,
+   "over": 5,
+   "top": "C3번 115%"
+  },
+  {
+   "maxLoad": 0.7,
+   "catch": 400,
+   "over": 7,
+   "top": "8번 135%"
+  },
+  {
+   "maxLoad": 0.7,
+   "catch": 600,
+   "over": 7,
+   "top": "8번 135%"
+  }
+ ],
+ "top3": [
+  {
+   "name": "세교 중흥S-클래스 에듀파크",
+   "share": 100
+  },
+  {
+   "name": "오산역 금강펜테리움 센트럴파크",
+   "share": 68
+  },
+  {
+   "name": "오산 세교 우미린 포레아시티",
+   "share": 54
+  },
+  {
+   "name": "오산 세교파라곤",
+   "share": 41
+  },
+  {
+   "name": "호반써밋 라프리미어",
+   "share": 20
+  },
+  {
+   "name": "호반써밋 라센트",
+   "share": 9
+  },
+  {
+   "name": "오산세교 힐데스하임",
+   "share": 4
+  },
+  {
+   "name": "한신더휴",
+   "share": 4
+  }
+ ],
+ "runs": 135
+}

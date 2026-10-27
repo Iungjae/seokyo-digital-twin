@@ -1,5 +1,5 @@
 import { CENTER as SAMPLE_CENTER, YEARS, COMPLEXES as SAMPLE_COMPLEXES, FACILITIES as SAMPLE_FAC } from "./data.js";
-import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=fix2";
+import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=fix4";
 
 // 실제 시설(OSM 기반, scripts/build_data.py 산출). 없으면 샘플 사용.
 let FACILITIES = SAMPLE_FAC, facSource = "샘플";
@@ -17,7 +17,7 @@ try {
     const cols = head.split(",");
     const rows = lines.map((l) => Object.fromEntries(l.split(",").map((v, i) => [cols[i], v])));
     const ok = rows.filter((x) => x.lat && x.lng && /^\d{4}-\d{2}$/.test(x.movein));
-    cxSkipped = rows.filter((x) => !ok.includes(x)).map((x) => x.name);
+    cxSkipped = rows.filter((x) => !ok.includes(x)).map((x) => ({ name: x.name, units: +x.units, why: !(x.lat && x.lng) ? "위치 미확인" : "입주 시기 미정" }));
     if (ok.length) {
       COMPLEXES = ok.map((x) => ({ id: x.id, name: x.name, lat: +x.lat, lng: +x.lng, phases: [[+x.movein.slice(0, 4), +x.units, x.movein]] }));
       CENTER = [COMPLEXES.reduce((a, c) => a + c.lat, 0) / COMPLEXES.length, COMPLEXES.reduce((a, c) => a + c.lng, 0) / COMPLEXES.length];
@@ -48,6 +48,10 @@ try {
   if (r.ok) { const j = await r.json(); PARAMS.busBg = j.routes; PARAMS.busBaseYM = j.meta.base_month; busBgSource = `${j.meta.months[0]}~${j.meta.base_month}`; }
 } catch (e) { /* 기존 이용객 미반영 */ }
 
+// 기존 학교 현원의 자연 변화 배율(scripts/build_cohort.py)과 입주율 곡선(scripts/fit_movein_ramp.py)
+try { const r = await fetch("data/cohort.json", { cache: "no-store" }); if (r.ok) PARAMS.cohort = (await r.json()).factors; } catch (e) { /* 자연 변화 미반영 */ }
+try { const r = await fetch("data/movein_ramp.json", { cache: "no-store" }); if (r.ok) PARAMS.moveinRamp = (await r.json()).ramp; } catch (e) { /* 기본 곡선 */ }
+
 const DEFAULTS = JSON.parse(JSON.stringify(PARAMS));   // 가정값 패널로 바꾸기 전의 기본 가정(기준선 계산과 "기본으로" 복원에 사용)
 
 const $ = (s) => document.querySelector(s);
@@ -57,19 +61,22 @@ const iGa = (w) => { const c = w.trim().slice(-1).charCodeAt(0) - 0xac00; return
 // 단계(여유·주의·부족)의 색과 뜻. 단계는 점수가 아니라 가장 붐비는 학교·버스 노선의 이용률로 정한다(model.js grade)
 const GRADE = { 여유: { cls: "g-ok", c: "#2FB67C" }, 주의: { cls: "g-warn", c: "#F5B84B" }, 부족: { cls: "g-bad", c: "#E5484D" } };
 // 툴팁에 넣는 단계 기준(꼬리표 + 한 문장)
+// 지도 원 색: 단계 색. 부족은 이용률에 따라 진하기 3단계(100~150%, 150~200%, 200% 이상)로 나눠 단지끼리 비교되게
+const BAD_SHADES = ["#F08588", "#E5484D", "#A3181D"];
+const gradeFill = (g) => (g.level !== "부족" ? GRADE[g.level].c : BAD_SHADES[g.util >= 2 ? 2 : g.util >= 1.5 ? 1 : 0]);
 const GRADE_TIP = ["~ 단계 기준", "[[부족]] 정원·수송력을 넘는 곳이 있음", "[[주의]] 정원·수송력의 90% 이상인 곳이 있음", "[[여유]] 그 외"];
 const lines = (...a) => a.filter(Boolean).map((t) => `<span>${t}</span>`).join("");   // 안내문은 한 문장 = 한 줄
 const state = { year: 2026, layer: "total", tool: null, added: [], plan: {}, newCx: [], labels: false, show: { school: true, park: true, bus: false } };
 
 // 입주계획 편집: plan[id] = { units, year } 로 기존 단지를 덮어쓰고, newCx 는 사용자가 지도에 추가한 신규 단지.
 // 시나리오 계산에는 이 "유효 단지 목록"을 쓰고, 기준선("현재 계획")은 원본 COMPLEXES 그대로 쓴다.
+const ym = (y, m) => `${y}-${String(m).padStart(2, "0")}`;
 function effComplexesOf(plan, newCx) {
   const base = COMPLEXES.map((c) => {
     const o = plan[c.id];
-    // 입주 연도를 그대로 두면 실제 입주 연월을 유지, 바꾸면 그해 12월 입주로 본다(model.js phaseYM)
-    return o ? { ...c, phases: o.units > 0 ? [[o.year, o.units, o.year === c.phases[0]?.[0] ? c.phases[0][2] : undefined]] : [] } : c;
+    return o ? { ...c, phases: o.units > 0 ? [[o.year, o.units, ym(o.year, o.month ?? baseMonth(c))]] : [] } : c;
   });
-  const added = newCx.map((n) => ({ id: n.id, name: n.name, lat: n.lat, lng: n.lng, phases: n.units > 0 ? [[n.year, n.units]] : [] }));
+  const added = newCx.map((n) => ({ id: n.id, name: n.name, lat: n.lat, lng: n.lng, phases: n.units > 0 ? [[n.year, n.units, ym(n.year, n.month ?? 1)]] : [] }));
   return [...base, ...added];
 }
 const effComplexes = () => effComplexesOf(state.plan, state.newCx);
@@ -153,7 +160,7 @@ function draw(res) {
     const score = x[LAYER_KEY[state.layer]];
     // 종합·학교·버스는 단지별 단계 색(가장 붐비는 학교·노선 이용률, 상단 단계와 같은 규칙). 공원은 정원 개념이 없어 점수 색
     const g = state.layer === "park" ? null : x.grade[state.layer];
-    const fill = g ? GRADE[g.level].c : color(score);
+    const fill = g ? gradeFill(g) : color(score);
     // 팝업: 넓은 화면은 위쪽 연도 상자(HUD) 아래로 자동 이동, 좁은 화면은 지도 높이에 맞춰 안에서 스크롤(HUD는 팝업이 열린 동안 숨김)
     L.circle([x.c.lat, x.c.lng], {
       radius: 70 + Math.sqrt(x.hh) * 3.2, color: "#fff", fillColor: fill, fillOpacity: 0.78, weight: 2.5,
@@ -207,7 +214,7 @@ document.body.appendChild(tipEl);
 // 툴팁 줄 문법: "# 제목", "---" 구분선, "~ 메모"(흐리게), 탭으로 나눈 줄은 표(이름 | 값 | 보충), [[여유/주의/부족]]은 단계 꼬리표
 const tipInline = (s) => esc(s).replace(/\[\[(여유|주의|부족)\]\]/g, (_, g) => `<i class="tip-chip ${GRADE[g].cls}">${g}</i>`);
 // 값 칸의 이용률이 100% 이상이면 빨강, 90% 이상이면 노랑 글자(단계 기준과 같은 경계)
-const utilCls = (c) => { const m = c.match(/(\d+)%$/); return !m ? "" : +m[1] >= 100 ? ' class="u-bad"' : +m[1] >= 90 ? ' class="u-warn"' : ""; };
+const utilCls = (c) => { const m = c.match(/([\d.]+)%$/); return !m ? "" : +m[1] > 100 ? ' class="u-bad"' : +m[1] >= 90 ? ' class="u-warn"' : ""; };
 function tipHTML(src) {
   const out = [];
   let grid = null;
@@ -269,21 +276,24 @@ function renderOverview(res, base) {
   }).join("");
 
   // 첫 요약은 물리 단위(정원을 넘는 학교, 이용률 100%를 넘는 노선, 기준 밖 단지)가 주인공. 종합 점수는 보조
-  const pct = (u) => `${Math.round(u * 100)}%`;
+  // 100% 근처는 소수 한 자리(정원을 넘었는데 "100%"로 보이지 않게)
+  const pct = (u) => `${Math.abs(u - 1) < 0.005 ? (u * 100).toFixed(1) : Math.round(u * 100)}%`;
   // 값("3곳" 등)에 마우스를 올리면 어느 학교·노선·단지인지 툴팁으로(지도 원과 같은 방식)
   const row = (label, val, tips, helpTip) => `<div><dt>${label}${helpTip ? ` ${help(...helpTip)}` : ""}</dt><dd><span class="has-tip" tabindex="0" ${tipAttr(...tips)}>${val}</span></dd></div>`;
   const so = res.schoolsOver, ro = res.routesOver;
   const short = (n) => n.replace("등학교", "").replace("학교", "");
   const n0 = (v) => Math.round(v).toLocaleString();
-  const sTop = res.schoolsUsedList[0], rTop = res.routesUsedList[0];
-  const schoolTips = so.length ? [`# 정원을 넘는 배정 학교 ${so.length}곳`, ...so.map((x) => `${short(x.name)}${x.temp ? " (임시 배정)" : ""}\t${pct(x.util)}\t학생 ${n0(x.load)} / 정원 ${n0(x.cap)}명`)]
-    : sTop ? ["# 모든 배정 학교가 정원 안입니다.", `가장 붐비는 곳\t${short(sTop.name)} ${pct(sTop.util)}\t학생 ${n0(sTop.load)} / 정원 ${n0(sTop.cap)}명`] : ["# 배정 학교가 없습니다."];
+  const sTop = res.schoolsUsedList.find((s) => !s.temp), rTop = res.routesUsedList[0];
+  // 임시 배정 학교(통학구역 미확정 단지)는 개수에서 빼고 툴팁 아래에 따로
+  const tempTips = res.schoolsTemp.length ? ["---", "~ 통학구역 미확정 단지의 임시 배정(개수에서 뺌)", ...res.schoolsTemp.map((x) => `${short(x.name)}\t${pct(x.util)}\t학생 ${n0(x.load)} / 정원 ${n0(x.cap)}명`)] : [];
+  const schoolTips = [...(so.length ? [`# 정원을 넘는 배정 학교 ${so.length}곳`, ...so.map((x) => `${short(x.name)}\t${pct(x.util)}\t학생 ${n0(x.load)} / 정원 ${n0(x.cap)}명`)]
+    : sTop ? ["# 모든 배정 학교가 정원 안입니다.", `가장 붐비는 곳\t${short(sTop.name)} ${pct(sTop.util)}\t학생 ${n0(sTop.load)} / 정원 ${n0(sTop.cap)}명`] : ["# 배정 학교가 없습니다."]), ...tempTips];
   const routeTips = ro.length ? [`# 이용률 100%를 넘는 노선 ${ro.length}개`, ...ro.map((x) => `${x.name}번\t${pct(x.util)}\t수요 ${n0(x.load)} / 수송력 ${n0(x.cap)}명`), "~ 출퇴근 1시간, 기존 이용객 포함입니다."]
     : rTop ? ["# 모든 노선이 수송력 안입니다.", `가장 붐비는 노선\t${rTop.name}번 ${pct(rTop.util)}\t수요 ${n0(rTop.load)} / 수송력 ${n0(rTop.cap)}명`, "~ 출퇴근 1시간, 기존 이용객 포함입니다."] : ["# 도보권 노선이 없습니다."];
-  const parkOutItems = res.items.filter((x) => x.hh > 0 && x.parkTier.some((tr) => tr.short > PARAMS.parkTolerance));
+  const parkOutItems = res.items.filter((x) => x.hh > 0 && x.parkTier.some((tr) => tr.over > 0));
   // 한 단지가 여러 기준을 벗어나면 기준마다 한 줄(한 줄이 길어져 꺾이지 않게)
   // 표: 단지 | 가장 가까운 공원까지 거리 | 공원 종류·기준. 같은 단지가 이어지면 이름은 첫 줄에만
-  const parkTips = parkOutItems.length ? [`# 공원 유치거리 밖 단지 ${parkOutItems.length}곳`, ...parkOutItems.flatMap((x) => x.parkTier.filter((tr) => tr.short > PARAMS.parkTolerance)
+  const parkTips = parkOutItems.length ? [`# 공원 유치거리 밖 단지 ${parkOutItems.length}곳`, ...parkOutItems.flatMap((x) => x.parkTier.filter((tr) => tr.over > 0)
     .map((tr, i) => `${i ? " " : shortName(x.c.name)}\t${isFinite(tr.d) ? Math.round(tr.d) + "m" : "없음"}\t${PARK_SHORT[tr.label] || tr.label} 기준 ${tr.reach}m`))]
     : ["# 모든 단지가 공원 유치거리 안입니다."];
   const d = res.summary.total - base.summary.total;
@@ -355,7 +365,7 @@ map.on("click", (e) => {
   const t = TOOLS[state.tool];
   if (t.cx) {
     const n = state.newCx.length + 1;
-    state.newCx.push({ id: `N${Date.now()}`, name: `신규 단지 ${n}`, lat: e.latlng.lat, lng: e.latlng.lng, units: t.units, year: state.year });
+    state.newCx.push({ id: `N${Date.now()}`, name: `신규 단지 ${n}`, lat: e.latlng.lat, lng: e.latlng.lng, units: t.units, year: state.year, month: 1 });
     renderPlan(); refresh();
     return;
   }
@@ -404,21 +414,22 @@ $("#tabs").addEventListener("click", (e) => {
 const PLAN_YEARS = [2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030];
 function baseUnits(c) { return c.phases.reduce((s2, [, n]) => s2 + n, 0); }
 function baseYear(c) { return c.phases.length ? c.phases[0][0] : 2030; }
+function baseMonth(c) { return c.phases[0]?.[2] ? +c.phases[0][2].slice(5, 7) : 1; }
 
 // 입주계획 목록용 짧은 이름: 괄호 설명과 모든 단지에 붙는 지역 접두어(오산·오산역·세교)를 뺌. 전체 이름은 title로
 const shortName = (n) => n.replace(/\(.*$/, "").replace(/^((오산역|오산|세교)\s*)+/, "").trim() || n;
 function renderPlan() {
-  const row = (id, name, units, year, edited, removable) => `<div class="plan-row${edited ? " edited" : ""}" data-id="${id}">
+  const row = (id, name, units, year, month, edited, removable) => `<div class="plan-row${edited ? " edited" : ""}" data-id="${id}">
     <span class="plan-name" title="${name}">${shortName(name)}${removable ? ` <button data-k="del" aria-label="${name} 삭제">삭제</button>` : ""}</span>
     <input type="number" min="0" max="5000" step="50" value="${units}" data-k="units" aria-label="${name} 세대수">
-    <select data-k="year" aria-label="${name} 입주 연도">${PLAN_YEARS.map((y) => `<option value="${y}"${y === year ? " selected" : ""}>${y}</option>`).join("")}</select>
+    <span class="plan-ym"><select data-k="year" aria-label="${name} 입주 연도">${PLAN_YEARS.map((y) => `<option value="${y}"${y === year ? " selected" : ""}>${y}</option>`).join("")}</select><select data-k="month" aria-label="${name} 입주 월">${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}"${i + 1 === month ? " selected" : ""}>${i + 1}월</option>`).join("")}</select></span>
     </div>`;
   const rows = COMPLEXES.map((c) => {
     const o = state.plan[c.id];
-    return row(c.id, c.name, o ? o.units : baseUnits(c), o ? o.year : baseYear(c), !!o, false);
+    return row(c.id, c.name, o ? o.units : baseUnits(c), o ? o.year : baseYear(c), o?.month ?? baseMonth(c), !!o, false);
   });
-  const added = state.newCx.map((n) => row(n.id, n.name, n.units, n.year, true, true));
-  $("#planList").innerHTML = `<div class="plan-row plan-head"><span>단지</span><span>세대수</span><span>입주 연도</span></div>` + rows.join("") + added.join("");
+  const added = state.newCx.map((n) => row(n.id, n.name, n.units, n.year, n.month ?? 1, true, true));
+  $("#planList").innerHTML = `<div class="plan-row plan-head"><span>단지</span><span>세대수</span><span>입주 연월</span></div>` + rows.join("") + added.join("");
 }
 
 $("#planList").addEventListener("change", (e) => {
@@ -428,9 +439,9 @@ $("#planList").addEventListener("change", (e) => {
   if (n) { n[k] = +el.value; }
   else {
     const c = COMPLEXES.find((x) => x.id === id);
-    const o = state.plan[id] ?? { units: baseUnits(c), year: baseYear(c) };
+    const o = state.plan[id] ?? { units: baseUnits(c), year: baseYear(c), month: baseMonth(c) };
     o[k] = +el.value;
-    if (o.units === baseUnits(c) && o.year === baseYear(c)) delete state.plan[id]; else state.plan[id] = o;
+    if (o.units === baseUnits(c) && o.year === baseYear(c) && (o.month ?? baseMonth(c)) === baseMonth(c)) delete state.plan[id]; else state.plan[id] = o;
     rowEl.classList.toggle("edited", !!state.plan[id]);
   }
   refresh();
@@ -505,9 +516,11 @@ const persistScenarios = () => { try { localStorage.setItem(SC_KEY, JSON.stringi
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const diffParams = () => Object.fromEntries(CONTROLS.filter((c) => Math.abs(getP(PARAMS, c.p) - getP(DEFAULTS, c.p)) > 1e-9).map((c) => [c.p, getP(PARAMS, c.p)]));
 
+// 저장 시나리오의 가정값 중 지금 패널에 있는 것만(예전 '기존 이용객 선점 비율' 등은 모델에서 빠졌음)
+const knownParams = (params) => Object.entries(params || {}).filter(([p]) => CONTROLS.some((c) => c.p === p));
 function evalScenario(sc, year) {
   const P = clone(DEFAULTS);
-  for (const [p, v] of Object.entries(sc.params || {})) setP(P, p, v);
+  for (const [p, v] of knownParams(sc.params)) setP(P, p, v);
   return evaluate(effComplexesOf(sc.plan, sc.newCx), [...FACILITIES, ...sc.added.map((f) => ({ ...f, added: true }))], year, P);
 }
 
@@ -543,9 +556,10 @@ $("#scTable").addEventListener("click", async (e) => {
     scenarios.splice(scenarios.indexOf(sc), 1); persistScenarios(); renderCompare(); return;
   }
   state.added = clone(sc.added); state.plan = clone(sc.plan); state.newCx = clone(sc.newCx);
-  resetParams(); for (const [p, v] of Object.entries(sc.params || {})) setP(PARAMS, p, v);
+  resetParams(); for (const [p, v] of knownParams(sc.params)) setP(PARAMS, p, v);
   renderParams(); renderPlan(); refresh();
-  $("#scHint").innerHTML = lines(`‘${esc(sc.name)}’을 불러왔습니다.`);
+  const dropped = Object.keys(sc.params || {}).length - knownParams(sc.params).length;
+  $("#scHint").innerHTML = lines(`‘${esc(sc.name)}’${eulReul(sc.name)} 불러왔습니다.`, dropped ? `지금 모델에 없는 예전 가정값 ${dropped}개는 적용하지 않았습니다.` : "");
 });
 
 // --- 최적 입지 추천 ---
@@ -739,7 +753,7 @@ function applyOps(ops) {
   for (const o of ops) {
     const c = o.complex_id ? COMPLEXES.find((x) => x.id === o.complex_id) : null;
     if ((o.op === "set_units" || o.op === "set_movein") && c) {
-      const cur = state.plan[c.id] ?? { units: baseUnits(c), year: baseYear(c) };
+      const cur = state.plan[c.id] ?? { units: baseUnits(c), year: baseYear(c), month: baseMonth(c) };
       state.plan[c.id] = o.op === "set_units" ? { ...cur, units: o.units } : { ...cur, year: o.year };
     } else if (o.op === "add_facility" && c) {
       const grp = (state.added.at(-1)?.grp || 0) + 1;   // 단지 바로 북쪽(약 130m)에 둔다
@@ -809,5 +823,6 @@ refresh();
 if (URLP.get("focus") === "schools") requestAnimationFrame(() => $("#schoolsBox").scrollIntoView({ block: "center" }));   // 캡처용: 학교 이용률 패널로 스크롤
 // 디버그/검증용
 window.__twin = { state, run, PARAMS, map };
-$("#dataBadge").textContent = `단지: ${cxSource} · 시설: ${facSource} · 학교 배정: ${zoneSource}${busBgSource ? ` · 버스 기존 이용객: ${busBgSource} 승차` : ""}`;
-if (cxSkipped.length) console.warn("좌표/입주월 누락으로 제외된 단지:", cxSkipped.join(", "));
+// 출처 줄: 계산에서 뺀 단지는 개수와 도움말(이름·세대·사유)로 알린다
+const skippedHelp = cxSkipped.length ? ` (제외 ${cxSkipped.length}곳 ${help(`# 계산에서 뺀 단지 ${cxSkipped.length}곳`, ...cxSkipped.map((x) => `${x.name}\t${x.units.toLocaleString()}세대\t${x.why}`), "~ 위치나 입주 시기가 확인되면 data/complexes.csv에 넣어 계산합니다.")})` : "";
+$("#dataBadge").innerHTML = `단지: ${esc(cxSource)}${skippedHelp} · 시설: ${esc(facSource)} · 학교 배정: ${esc(zoneSource)}${busBgSource ? ` · 버스 기존 이용객: ${esc(busBgSource)} 승차` : ""}`;

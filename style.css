@@ -137,7 +137,7 @@ select:focus, input[type=text]:focus, input[type=number]:focus { border-color: v
 
 /* 입주계획 편집 */
 #planList { max-height: 300px; overflow-y: auto; margin: 0 -4px 10px; padding: 0 4px; }
-.plan-row { display: grid; grid-template-columns: 1fr 68px 76px; gap: 6px; align-items: center; padding: 5px 0; font-size: 13px; border-bottom: 1px solid #F0F1F4; }
+.plan-row { display: grid; grid-template-columns: 1fr 64px 136px; gap: 6px; align-items: center; padding: 5px 0; font-size: 13px; border-bottom: 1px solid #F0F1F4; }
 .plan-name { font-weight: 500; line-height: 1.35; }
 .plan-row.edited .plan-name { color: var(--accent-ink); font-weight: 700; }
 .plan-row input, .plan-row select { height: 34px; width: 100%; padding: 0 8px; font-size: 13px; border: 1px solid var(--line-strong); border-radius: var(--r-ctl); background: var(--surface); }
@@ -323,3 +323,6 @@ body.map-only #stage { width: 100vw; }
 .help:hover, .help:focus-visible { border-color: var(--accent); color: var(--accent-ink); }
 .hint:empty { display: none; }
 .legend-steps[hidden] { display: none; }
+.plan-ym { display: grid; grid-template-columns: 1fr 58px; gap: 4px; }
+.plan-ym select { padding: 0 4px; }
+.legend-steps span i + i { margin-left: -3px; }

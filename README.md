@@ -23,6 +23,7 @@ python3 -m http.server 8765
 - **AI 정책 리포트**: 화면 수치를 근거 번호(F1, F2…)로 묶어 Claude Haiku 5.5가 리포트를 쓰고, 근거에 없는 숫자를 쓴 문장은 서버가 걸러 냅니다.
 - **말로 시나리오 만들기**: "우미린 입주를 2029년으로 미루면?" 같은 질문을 화면 조작으로 바꾸고, 적용 전에 바뀌는 내용을 보여 줍니다.
 - **버스 계수 학습**: 경기도 정류소별 승하차 데이터(2023~2026)로 "세대당 첨두 버스 이용객"을 추정해 기본값으로 씁니다(0.3명 가정 → 0.032명). 같은 데이터로 노선별 기존 이용객도 추정해 노선 부하에 넣습니다(`scripts/fit_bus_rate.py`, `scripts/estimate_bus_background.py`). 새 단지가 더하는 버스 수요는 작지만, 주요 노선은 기존 승객만으로 이미 붐빕니다(발표 수치 `docs/demo-numbers.md`).
+- **실측 보정과 검증**: 초등 학령인구(신설교 현원), 입주율 곡선(버스 승차 증가), 기존 학생 자연 감소(연령별 인구)를 데이터로 잡고, `node scripts/sensitivity.mjs`로 가정 135조합 민감도를 돌립니다(`docs/assumptions.md`, `docs/sensitivity.md`).
 - 구조·배포·한계: [docs/ai.md](docs/ai.md). AI 중계 서버는 `ai-worker/`(Cloudflare Worker)입니다.
 
 ## 중요한 한계 (먼저 읽어 주세요)

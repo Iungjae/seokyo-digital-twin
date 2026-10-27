@@ -17,12 +17,19 @@ NEIS = {x["name"]: x for x in json.loads((ROOT / "data/neis_schools.json").read_
 VOCATIONAL = {"경기오산소프트웨어고등학교", "오산정보고등학교"}
 
 
+def capacity(lv, cls, stu):
+    """정원 = 학급 수 x 학급당 정원(가정). 중·고는 오산시 실제 학급당 학생 수(평균 31명)가 가정(29명)보다 많아
+    입주와 무관하게 14곳이 '정원 초과'로 나왔다 → 지금 29명보다 붐비게 운영 중인 학교는 현재 운영 수준(현원)을 정원으로 본다"""
+    cap = cls * CAP_PER_CLASS[lv]
+    return max(cap, stu) if lv in ("mid", "high") else cap
+
+
 def school(id_, lv, name, lat, lng, src):
     r = SI[name]
     cls, stu = int(r["classes"]), int(r["students"])
     founded = NEIS.get(name, {}).get("founded")
     return dict(id=id_, type="school", level=lv, name=name, lat=lat, lng=lng, classes=cls, enrolled=stu,
-                cap=cls * CAP_PER_CLASS[lv], open=int(founded[:4]) if founded else 2020, est=True, src=src,
+                cap=capacity(lv, cls, stu), open=int(founded[:4]) if founded else 2020, est=True, src=src,
                 **({"vocational": True} if name in VOCATIONAL else {}))
 
 
