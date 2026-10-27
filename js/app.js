@@ -664,7 +664,8 @@ function renderRec() {
   if ($("#recGrid").checked && max > 0.05) {
     for (const c of cands) {
       if (c.gain <= 0.02) continue;
-      L.circleMarker([c.lat, c.lng], { radius: 6, stroke: false, fillColor: "#3B5BDB", fillOpacity: Math.max(0.06, Math.min(0.55, (c.gain / max) * 0.55)), interactive: false }).addTo(recLayer);
+      // 효과가 작은 후보도 지도 위에서 보이게: 불투명도 하한 0.3, 효과 비율의 제곱근으로 0.3~0.9. 흰 테두리로 지도 바탕과 구분
+      L.circleMarker([c.lat, c.lng], { radius: 6, color: "#fff", weight: 1, opacity: 0.9, fillColor: "#3B5BDB", fillOpacity: 0.3 + 0.6 * Math.sqrt(Math.min(1, c.gain / max)), interactive: false }).addTo(recLayer);
     }
   }
   top.forEach((c, i) => L.marker([c.lat, c.lng], {
