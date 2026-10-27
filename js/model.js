@@ -167,6 +167,13 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
   const routesOver = [...usedRoutes].map((id) => ({ name: String(routeName[id] ?? id), util: (routeLoad[id] || 0) / routeCap[id] }))
     .filter((r) => r.util > 1).sort((a, b) => b.util - a.util);
   const parkOut = active.filter((x) => x.parkTier.some((tr) => tr.short > P.parkTolerance)).length;
+  // 단계(종합 점수를 읽는 기준): 입주 단지가 쓰는 학교·버스 노선 중 가장 붐비는 곳의 이용률로 정한다.
+  // 부족 = 정원·수송력을 넘는 곳이 있음(100% 초과), 주의 = 90% 이상, 여유 = 그 외. 공원은 정원 개념이 없어 제외
+  const busiest = [
+    ...[...usedSchools.values()].map((f) => ({ name: f.name, util: schoolLoad[f.id] / (f.cap * P.schoolCapScale) })),
+    ...[...usedRoutes].map((id) => ({ name: `${routeName[id] ?? id}번 버스`, util: (routeLoad[id] || 0) / routeCap[id] })),
+  ].sort((a, b) => b.util - a.util)[0] || { name: "", util: 0 };
+  const grade = { level: busiest.util > 1 ? "부족" : busiest.util >= 0.9 ? "주의" : "여유", util: busiest.util, name: busiest.name };
 
   const pop = active.reduce((s, x) => s + x.pop, 0);
   const avg = (k) => (pop ? active.reduce((s, x) => s + x[k] * x.pop, 0) / pop : 0);
@@ -179,7 +186,7 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
     // 학교 초과는 학급당 정원 가정(초 25·중고 29명)에 민감하므로 학교/버스를 나눠 돌려준다. risky = 둘 중 하나라도.
     schoolOver: active.filter((x) => ["elem", "mid", "high"].some((lv) => (x.school[lv] && x.school[lv].over) > 0.0005)).length,
     busOver: active.filter((x) => x.bus.util > 1).length,
-    schoolsOver, schoolsUsed: usedSchools.size, routesOver, routesUsed: usedRoutes.size, parkOut, active: active.length,
+    schoolsOver, schoolsUsed: usedSchools.size, routesOver, routesUsed: usedRoutes.size, parkOut, active: active.length, grade,
     risky: active.filter((x) => ["elem", "mid", "high"].some((lv) => (x.school[lv] && x.school[lv].over) > 0.0005) || x.bus.util > 1).length,
     schools: open.filter((f) => f.type === "school")
       .map((f) => ({ id: f.id, name: f.name, level: f.level, load: schoolLoad[f.id] || 0, cap: f.cap, util: (schoolLoad[f.id] || 0) / f.cap })),

@@ -1,5 +1,5 @@
 import { CENTER as SAMPLE_CENTER, YEARS, COMPLEXES as SAMPLE_COMPLEXES, FACILITIES as SAMPLE_FAC } from "./data.js";
-import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=bus1";
+import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=gr1";
 
 // 실제 시설(OSM 기반, scripts/build_data.py 산출). 없으면 샘플 사용.
 let FACILITIES = SAMPLE_FAC, facSource = "샘플";
@@ -45,6 +45,11 @@ const DEFAULTS = JSON.parse(JSON.stringify(PARAMS));   // 가정값 패널로 �
 
 const $ = (s) => document.querySelector(s);
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+// 받침이 있으면 "이", 없으면 "가"
+const iGa = (w) => { const c = w.trim().slice(-1).charCodeAt(0) - 0xac00; return c >= 0 && c < 11172 && c % 28 === 0 ? "가" : "이"; };
+// 단계(여유·주의·부족)의 색과 뜻. 단계는 점수가 아니라 가장 붐비는 학교·버스 노선의 이용률로 정한다(model.js grade)
+const GRADE = { 여유: { cls: "g-ok", c: "#2FB67C" }, 주의: { cls: "g-warn", c: "#F5B84B" }, 부족: { cls: "g-bad", c: "#E5484D" } };
+const GRADE_TIP = "부족: 정원·수송력을 넘는 곳이 있음 / 주의: 90% 이상인 곳이 있음 / 여유: 그 외";
 const lines = (...a) => a.filter(Boolean).map((t) => `<span>${t}</span>`).join("");   // 안내문은 한 문장 = 한 줄
 const state = { year: 2026, layer: "total", tool: null, added: [], plan: {}, newCx: [], labels: false, show: { school: true, park: true, bus: false } };
 
@@ -183,15 +188,23 @@ function renderPanel(res, base) {
 }
 
 // 상단 요약: 연도 막대(누적 입주 세대 높이 + 종합 부족도 색) = 연도 선택기, 아래에 선택 연도를 문장으로
+// 단계 이유를 한 문장으로: 가장 붐비는 학교·노선과 그 이용률
+function gradeWhy({ level, util, name }) {
+  if (!name) return "입주 단지가 쓰는 학교·버스 노선이 없습니다.";
+  const bus = name.endsWith("버스"), who = bus ? name : name.replace("등학교", "").replace("학교", "");
+  const of = `${bus ? "수송력" : "정원"}의 ${Math.round(util * 100)}%`;
+  return level === "여유" ? `여유 단계: 가장 붐비는 ${who}도 ${of}입니다.` : `${level} 단계: ${who}${iGa(who)} ${of}로 가장 붐빕니다.`;
+}
 function renderOverview(res, base) {
   const byYear = YEARS.map((y) => (y === state.year ? res : run(y)));
   const maxHH = Math.max(1, ...byYear.map((r) => r.hh));
   $("#timeline").innerHTML = byYear.map((r, i) => {
-    const y = YEARS[i], on = y === state.year, t = r.summary.total;
+    const y = YEARS[i], on = y === state.year, t = r.summary.total, g = GRADE[r.grade.level];
     return `<button type="button" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" data-year="${y}" class="tl-col${on ? " on" : ""}"
-      aria-label="${y}년, ${r.hh.toLocaleString()}세대, 종합 부족도 ${t.toFixed(0)}점">
+      aria-label="${y}년, ${r.hh.toLocaleString()}세대, 종합 부족도 ${t.toFixed(0)}점, ${r.grade.level} 단계">
       <span class="tl-score">${t.toFixed(0)}점</span>
-      <span class="tl-bar"><i style="height:${Math.max(4, (r.hh / maxHH) * 100)}%;background:${color(t)}"></i></span>
+      <span class="tl-grade ${g.cls}">${r.grade.level}</span>
+      <span class="tl-bar"><i style="height:${Math.max(4, (r.hh / maxHH) * 100)}%;background:${g.c}"></i></span>
       <span class="tl-year">${y}</span></button>`;
   }).join("");
 
@@ -209,7 +222,8 @@ function renderOverview(res, base) {
     row("정원을 넘는 배정 학교", so.length ? `${so.length}곳` : "없음", so.length ? top3(so, (x) => `${short(x.name)} ${pct(x.util)}`) : "") +
     row("이용률 100%를 넘는 버스 노선", ro.length ? `${ro.length}개` : "없음", ro.length ? top3(ro, (x) => `${x.name}번 ${pct(x.util)}`) : "") +
     row("공원 유치거리 밖 단지", `${res.parkOut}곳 / ${res.active}곳`, "") + `</dl>` +
-    `<span class="total-line">종합 부족도 <i class="dot" style="background:${color(res.summary.total)}"></i><b>${res.summary.total.toFixed(0)}점</b>${delta}</span>` +
+    `<span class="total-line">종합 부족도 <b>${res.summary.total.toFixed(0)}점</b> <span class="grade-tag ${GRADE[res.grade.level].cls}" title="${GRADE_TIP}">${res.grade.level}</span>${delta}</span>` +
+    `<span class="grade-why">${gradeWhy(res.grade)}</span>` +
     (so.length ? `<span class="note">학교 정원은 학급 수 × 학급당 25·29명으로 가정했습니다.</span>` : "");
 }
 const pickYear = (y) => { state.year = y; $("#year").value = y; refresh(); };
@@ -606,6 +620,7 @@ function aiFacts() {
   const add = (text) => F.push({ id: `F${F.length + 1}`, text });
   add(`${state.year}년까지 입주 세대 ${res.hh.toLocaleString()}세대, 입주 단지 ${res.active}곳`);
   add(`종합 부족도 ${Math.round(res.summary.total)}점(가정 기반 상대 비교), 학교 ${Math.round(res.summary.school)}점, 버스 ${Math.round(res.summary.bus)}점, 공원 ${Math.round(res.summary.park)}점`);
+  add(`단계 ${res.grade.level}: 가장 붐비는 ${res.grade.name}의 이용률 ${Math.round(res.grade.util * 100)}%(100% 초과면 부족, 90% 이상이면 주의)`);
   if (res.schoolsOver.length) for (const s of res.schoolsOver.slice(0, 4)) add(`배정 학교 ${s.name}의 정원 대비 부하 ${Math.round(s.util * 100)}%`);
   else add("정원을 넘는 배정 학교 없음");
   const ro = res.routesOver;
