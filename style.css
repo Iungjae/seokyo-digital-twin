@@ -296,8 +296,22 @@ body.map-only #stage { width: 100vw; }
 .g-bad { background: #FDECEC; color: #B42318; }
 
 /* 세부 정보 툴팁(지도 원 툴팁과 같은 모양) */
-.tip { position: fixed; z-index: 2000; max-width: min(460px, calc(100vw - 16px)); padding: 6px 10px; border-radius: var(--r-sm); background: var(--surface); box-shadow: var(--shadow-float); font: 600 12.5px/1.6 "Pretendard Variable", Pretendard, sans-serif; color: var(--text); pointer-events: none; }
-.tip span { display: block; white-space: nowrap; }
+/* 세부 정보 툴팁: 제목 → 표(이름 흐리게 | 값 굵게 | 보충 작게) → 메모. 줄마다 한 문장, 꺾지 않음 */
+.tip { position: fixed; z-index: 2000; display: flex; flex-direction: column; gap: 6px; max-width: min(520px, calc(100vw - 16px)); padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-box); background: var(--surface); box-shadow: var(--shadow-float); font: 500 12.5px/1.5 "Pretendard Variable", Pretendard, sans-serif; color: var(--text); pointer-events: none; font-variant-numeric: tabular-nums; }
+.tip > * { white-space: nowrap; }
+.tip-title { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 700; }
+.tip-line { display: flex; align-items: center; gap: 6px; }
+.tip-note { color: var(--mute); font-size: 12px; }
+.tip-sep { width: 100%; height: 1px; margin: 0; border: 0; background: var(--line); }
+.tip-grid { display: grid; gap: 4px 16px; align-items: baseline; }
+.tip-c2 { grid-template-columns: auto auto; }
+.tip-c3 { grid-template-columns: auto auto auto; }
+.tip-c2 > span:nth-child(odd), .tip-c3 > span:nth-child(3n+1) { color: var(--mute); }
+.tip-c2 > span:nth-child(even), .tip-c3 > span:nth-child(3n+2) { font-weight: 700; text-align: right; }
+.tip-c3 > span:nth-child(3n) { color: var(--mute); font-size: 12px; }
+.tip-grid > .u-bad { color: #B42318; }
+.tip-grid > .u-warn { color: #8A5A00; }
+.tip-chip { display: inline-block; padding: 0 6px; border-radius: var(--r-sm); font-size: 11.5px; font-style: normal; font-weight: 700; line-height: 1.6; }
 .has-tip { text-decoration: underline dotted var(--faint); text-underline-offset: 3px; cursor: help; }
 .has-tip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 

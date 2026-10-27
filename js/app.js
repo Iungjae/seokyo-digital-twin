@@ -1,5 +1,5 @@
 import { CENTER as SAMPLE_CENTER, YEARS, COMPLEXES as SAMPLE_COMPLEXES, FACILITIES as SAMPLE_FAC } from "./data.js";
-import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=help1";
+import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=tip4";
 
 // 실제 시설(OSM 기반, scripts/build_data.py 산출). 없으면 샘플 사용.
 let FACILITIES = SAMPLE_FAC, facSource = "샘플";
@@ -49,7 +49,8 @@ const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 const iGa = (w) => { const c = w.trim().slice(-1).charCodeAt(0) - 0xac00; return c >= 0 && c < 11172 && c % 28 === 0 ? "가" : "이"; };
 // 단계(여유·주의·부족)의 색과 뜻. 단계는 점수가 아니라 가장 붐비는 학교·버스 노선의 이용률로 정한다(model.js grade)
 const GRADE = { 여유: { cls: "g-ok", c: "#2FB67C" }, 주의: { cls: "g-warn", c: "#F5B84B" }, 부족: { cls: "g-bad", c: "#E5484D" } };
-const GRADE_TIP = "부족: 정원·수송력을 넘는 곳이 있음 / 주의: 90% 이상인 곳이 있음 / 여유: 그 외";
+// 툴팁에 넣는 단계 기준(꼬리표 + 한 문장)
+const GRADE_TIP = ["~ 단계 기준", "[[부족]] 정원·수송력을 넘는 곳이 있음", "[[주의]] 정원·수송력의 90% 이상인 곳이 있음", "[[여유]] 그 외"];
 const lines = (...a) => a.filter(Boolean).map((t) => `<span>${t}</span>`).join("");   // 안내문은 한 문장 = 한 줄
 const state = { year: 2026, layer: "total", tool: null, added: [], plan: {}, newCx: [], labels: false, show: { school: true, park: true, bus: false } };
 
@@ -192,8 +193,31 @@ function renderPanel(res, base) {
 const tipEl = Object.assign(document.createElement("div"), { id: "tip", className: "tip", hidden: true });
 tipEl.setAttribute("role", "tooltip");
 document.body.appendChild(tipEl);
+// 툴팁 줄 문법: "# 제목", "---" 구분선, "~ 메모"(흐리게), 탭으로 나눈 줄은 표(이름 | 값 | 보충), [[여유/주의/부족]]은 단계 꼬리표
+const tipInline = (s) => esc(s).replace(/\[\[(여유|주의|부족)\]\]/g, (_, g) => `<i class="tip-chip ${GRADE[g].cls}">${g}</i>`);
+// 값 칸의 이용률이 100% 이상이면 빨강, 90% 이상이면 노랑 글자(단계 기준과 같은 경계)
+const utilCls = (c) => { const m = c.match(/(\d+)%$/); return !m ? "" : +m[1] >= 100 ? ' class="u-bad"' : +m[1] >= 90 ? ' class="u-warn"' : ""; };
+function tipHTML(src) {
+  const out = [];
+  let grid = null;
+  for (const l of src.split("\n")) {
+    const cells = l.split("\t");
+    if (cells.length > 1) {
+      if (!grid || grid.n !== cells.length) out.push(grid = { n: cells.length, rows: [] });
+      grid.rows.push(cells);
+      continue;
+    }
+    grid = null;
+    if (l === "---") out.push(`<hr class="tip-sep">`);
+    else if (l.startsWith("# ")) out.push(`<b class="tip-title">${tipInline(l.slice(2))}</b>`);
+    else if (l.startsWith("~ ")) out.push(`<span class="tip-note">${tipInline(l.slice(2))}</span>`);
+    else out.push(`<span class="tip-line">${tipInline(l)}</span>`);
+  }
+  return out.map((o) => (typeof o === "string" ? o
+    : `<span class="tip-grid tip-c${o.n}">${o.rows.map((r) => r.map((c, i) => `<span${i === 1 ? utilCls(c) : ""}>${tipInline(c)}</span>`).join("")).join("")}</span>`)).join("");
+}
 function showTip(t) {
-  tipEl.innerHTML = t.dataset.tip.split("\n").map((l) => `<span>${esc(l)}</span>`).join("");
+  tipEl.innerHTML = tipHTML(t.dataset.tip);
   tipEl.hidden = false;
   const r = t.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
   const x = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2));
@@ -213,12 +237,11 @@ const help = (...ls) => `<span class="help" tabindex="0" aria-label="도움말" 
 document.addEventListener("click", (e) => { if (e.target.closest(".help")) e.preventDefault(); });   // 접기 제목(summary) 안에서 눌러도 접히지 않게
 const PARK_SHORT = { "어린이공원급": "어린이공원", "근린생활권 근린공원": "1만㎡ 공원", "도보권 근린공원": "3만㎡ 공원" };
 
-// 단계 이유를 한 문장으로: 가장 붐비는 학교·노선과 그 이용률
-function gradeWhy({ level, util, name }) {
-  if (!name) return "입주 단지가 쓰는 학교·버스 노선이 없습니다.";
+// 단계 이유를 표 한 행으로: 가장 붐비는 학교·노선 | 이용률 | 정원·수송력 대비
+function gradeWhy({ util, name }) {
+  if (!name) return "가장 붐비는 곳\t없음";
   const bus = name.endsWith("버스"), who = bus ? name : name.replace("등학교", "").replace("학교", "");
-  const of = `${bus ? "수송력" : "정원"}의 ${Math.round(util * 100)}%`;
-  return level === "여유" ? `여유 단계: 가장 붐비는 ${who}도 ${of}입니다.` : `${level} 단계: ${who}${iGa(who)} ${of}로 가장 붐빕니다.`;
+  return `가장 붐비는 곳\t${who} ${Math.round(util * 100)}%\t${bus ? "수송력" : "정원"} 대비`;
 }
 function renderOverview(res, base) {
   const byYear = YEARS.map((y) => (y === state.year ? res : run(y)));
@@ -226,7 +249,7 @@ function renderOverview(res, base) {
   $("#timeline").innerHTML = byYear.map((r, i) => {
     const y = YEARS[i], on = y === state.year, t = r.summary.total, g = GRADE[r.grade.level];
     return `<button type="button" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" data-year="${y}" class="tl-col${on ? " on" : ""}"
-      ${tipAttr(`${y}년까지 ${r.hh.toLocaleString()}세대 입주`, `종합 부족도 ${t.toFixed(0)}점 · ${r.grade.level}`, gradeWhy(r.grade))}
+      ${tipAttr(`# ${y}년 [[${r.grade.level}]]`, `입주 세대\t${r.hh.toLocaleString()}세대\t누적`, `종합 부족도\t${t.toFixed(0)}점\t0~100`, gradeWhy(r.grade))}
       aria-label="${y}년, ${r.hh.toLocaleString()}세대, 종합 부족도 ${t.toFixed(0)}점, ${r.grade.level} 단계">
       <span class="tl-score">${t.toFixed(0)}점</span>
       <span class="tl-grade ${g.cls}">${r.grade.level}</span>
@@ -242,14 +265,16 @@ function renderOverview(res, base) {
   const short = (n) => n.replace("등학교", "").replace("학교", "");
   const n0 = (v) => Math.round(v).toLocaleString();
   const sTop = res.schoolsUsedList[0], rTop = res.routesUsedList[0];
-  const schoolTips = so.length ? so.map((x) => `${short(x.name)} ${pct(x.util)} (학생 약 ${n0(x.load)}명 / 정원 ${n0(x.cap)}명)`)
-    : sTop ? ["모든 배정 학교가 정원 안입니다.", `가장 붐비는 곳: ${short(sTop.name)} ${pct(sTop.util)}`] : ["배정 학교가 없습니다."];
-  const routeTips = ro.length ? ro.map((x) => `${x.name}번 ${pct(x.util)} (출퇴근 1시간 수요 ${n0(x.load)}명 / 수송력 ${n0(x.cap)}명)`)
-    : rTop ? ["모든 노선이 수송력 안입니다.", `가장 붐비는 노선: ${rTop.name}번 ${pct(rTop.util)}`] : ["도보권 노선이 없습니다."];
+  const schoolTips = so.length ? [`# 정원을 넘는 배정 학교 ${so.length}곳`, ...so.map((x) => `${short(x.name)}\t${pct(x.util)}\t학생 ${n0(x.load)} / 정원 ${n0(x.cap)}명`)]
+    : sTop ? ["# 모든 배정 학교가 정원 안입니다.", `가장 붐비는 곳\t${short(sTop.name)} ${pct(sTop.util)}\t학생 ${n0(sTop.load)} / 정원 ${n0(sTop.cap)}명`] : ["# 배정 학교가 없습니다."];
+  const routeTips = ro.length ? [`# 이용률 100%를 넘는 노선 ${ro.length}개`, ...ro.map((x) => `${x.name}번\t${pct(x.util)}\t수요 ${n0(x.load)} / 수송력 ${n0(x.cap)}명`), "~ 출퇴근 1시간 기준입니다."]
+    : rTop ? ["# 모든 노선이 수송력 안입니다.", `가장 붐비는 노선\t${rTop.name}번 ${pct(rTop.util)}\t수요 ${n0(rTop.load)} / 수송력 ${n0(rTop.cap)}명`, "~ 출퇴근 1시간 기준입니다."] : ["# 도보권 노선이 없습니다."];
   const parkOutItems = res.items.filter((x) => x.hh > 0 && x.parkTier.some((tr) => tr.short > PARAMS.parkTolerance));
   // 한 단지가 여러 기준을 벗어나면 기준마다 한 줄(한 줄이 길어져 꺾이지 않게)
-  const parkTips = parkOutItems.length ? parkOutItems.flatMap((x) => x.parkTier.filter((tr) => tr.short > PARAMS.parkTolerance).map((tr) => `${shortName(x.c.name)}: ${PARK_SHORT[tr.label] || tr.label} ${isFinite(tr.d) ? Math.round(tr.d) + "m" : "없음"}(기준 ${tr.reach}m)`))
-    : ["모든 단지가 공원 유치거리 안입니다."];
+  // 표: 단지 | 가장 가까운 공원까지 거리 | 공원 종류·기준. 같은 단지가 이어지면 이름은 첫 줄에만
+  const parkTips = parkOutItems.length ? [`# 공원 유치거리 밖 단지 ${parkOutItems.length}곳`, ...parkOutItems.flatMap((x) => x.parkTier.filter((tr) => tr.short > PARAMS.parkTolerance)
+    .map((tr, i) => `${i ? " " : shortName(x.c.name)}\t${isFinite(tr.d) ? Math.round(tr.d) + "m" : "없음"}\t${PARK_SHORT[tr.label] || tr.label} 기준 ${tr.reach}m`))]
+    : ["# 모든 단지가 공원 유치거리 안입니다."];
   const d = res.summary.total - base.summary.total;
   const delta = Math.abs(d) > 0.05 ? ` <span class="delta ${d < 0 ? "down" : "up"}">현재 계획보다 ${Math.abs(d).toFixed(1)}점 ${d < 0 ? "낮음" : "높음"}</span>` : "";
   $("#readout").innerHTML =
@@ -258,7 +283,7 @@ function renderOverview(res, base) {
     row("정원을 넘는 배정 학교", so.length ? `${so.length}곳` : "없음", schoolTips, ["학교 정원은 학급 수 × 학급당 25·29명으로 가정했습니다.", "정원 가정에 따라 초과 여부가 달라집니다."]) +
     row("이용률 100%를 넘는 버스 노선", ro.length ? `${ro.length}개` : "없음", routeTips) +
     row("공원 유치거리 밖 단지", `${res.parkOut}곳 / ${res.active}곳`, parkTips) + `</dl>` +
-    `<span class="total-line">종합 부족도 <b>${res.summary.total.toFixed(0)}점</b> <span class="grade-tag ${GRADE[res.grade.level].cls}" tabindex="0" ${tipAttr(gradeWhy(res.grade), ...GRADE_TIP.split(" / "))}>${res.grade.level}</span>${delta}</span>` +
+    `<span class="total-line">종합 부족도 <b>${res.summary.total.toFixed(0)}점</b> <span class="grade-tag ${GRADE[res.grade.level].cls}" tabindex="0" ${tipAttr(`# [[${res.grade.level}]] 단계`, gradeWhy(res.grade), "---", ...GRADE_TIP)}>${res.grade.level}</span>${delta}</span>` +
     "";
 }
 const pickYear = (y) => { state.year = y; $("#year").value = y; refresh(); };
@@ -279,7 +304,7 @@ function renderSchools(res, base) {
     const d = b ? s.util - b.util : 0;
     const dTxt = Math.abs(d) > 0.005 ? ` <em class="${d < 0 ? "down" : "up"}">${d < 0 ? "▼" : "▲"}${Math.abs(d * 100).toFixed(0)}p</em>` : "";
     const w = Math.min(100, s.util * 100);
-    return `<div class="bar bar-wide" tabindex="0" ${tipAttr(s.name, `학생 약 ${Math.round(s.load).toLocaleString()}명 / 정원 ${Math.round(s.cap).toLocaleString()}명`, Math.abs(d) > 0.005 ? `시나리오로 ${Math.abs(d * 100).toFixed(0)}%p ${d < 0 ? "내려감" : "올라감"}` : "")}><b>${s.name.replace("초등학교", "초").replace("중학교", "중").replace("고등학교", "고").slice(0, 14)}</b><span><i style="width:${w}%;background:${color(Math.max(0, (s.util - 0.7) / 0.5 * 100))}"></i></span><b>${(s.util * 100).toFixed(0)}%${dTxt}</b></div>`;
+    return `<div class="bar bar-wide" tabindex="0" ${tipAttr(`# ${s.name}`, `이용률\t${(s.util * 100).toFixed(0)}%`, `학생\t약 ${Math.round(s.load).toLocaleString()}명`, `정원\t${Math.round(s.cap).toLocaleString()}명`, Math.abs(d) > 0.005 ? `시나리오 변화\t${Math.abs(d * 100).toFixed(0)}%p ${d < 0 ? "내려감" : "올라감"}` : "")}><b>${s.name.replace("초등학교", "초").replace("중학교", "중").replace("고등학교", "고").slice(0, 14)}</b><span><i style="width:${w}%;background:${color(Math.max(0, (s.util - 0.7) / 0.5 * 100))}"></i></span><b>${(s.util * 100).toFixed(0)}%${dTxt}</b></div>`;
   }).join("");
 }
 
