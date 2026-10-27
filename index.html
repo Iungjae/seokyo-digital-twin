@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <!-- AI 중계 서버(ai-worker) 주소. 비어 있으면 AI 기능은 "연결 안 됨"으로 표시된다 -->
 <meta name="seokyo-ai" content="https://seokyo-twin-ai.iungjae48.workers.dev">
-<link rel="stylesheet" href="style.css?v=sp3">
+<link rel="stylesheet" href="style.css?v=nl2">
 </head>
 <body>
 <aside id="panel">
@@ -69,7 +69,7 @@
     <section class="card">
       <h2>말로 시나리오 만들기</h2>
       <p class="hint"><span>질문을 쓰면 AI가 화면 조작으로 바꿉니다.</span><span>적용하기 전에 바뀌는 내용을 먼저 보여 드립니다.</span></p>
-      <form id="nlForm" class="row save-row"><input id="nlInput" type="text" maxlength="200" placeholder="예: 우미린 입주를 2029년으로 미루면?" aria-label="시나리오 질문"><button type="submit" class="primary">해석</button></form>
+      <form id="nlForm" class="row save-row"><input id="nlInput" type="text" maxlength="200" placeholder="예: 우미린 입주를 2029년으로 미루면?" aria-label="시나리오 질문"><button type="submit" class="primary">생성</button></form>
       <div class="nl-examples" id="nlExamples">
         <button type="button">우미린 입주를 2029년으로 미루면?</button>
         <button type="button">파라곤 근처에 정류장을 하나 더 두면?</button>
@@ -163,6 +163,6 @@
 </dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="js/app.js?v=bus1"></script>
+<script type="module" src="js/app.js?v=nl2"></script>
 </body>
 </html>

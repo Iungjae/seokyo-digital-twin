@@ -378,14 +378,6 @@ const CONTROLS = [
   { p: "weights.park", label: "공원", min: 0, max: 1, step: 0.05, d: 2 },
 ];
 
-let BUS_FIT = null;   // data/bus_rate.json(있을 때만)
-fetch("data/bus_rate.json").then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.peak_per_hh != null) { BUS_FIT = j; renderParams(); } }).catch(() => {});
-$("#paramList").addEventListener("click", (e) => {
-  if (!BUS_FIT || !["useBusFit", "useOldBus"].includes(e.target.id)) return;
-  const c = CONTROLS.find((x) => x.p === "busPeakPaxPerHH");
-  setP(PARAMS, c.p, e.target.id === "useOldBus" ? 0.3 : Math.min(c.max, Math.max(c.min, BUS_FIT.peak_per_hh)));
-  renderParams(); refresh();
-});
 function renderParams() {
   let html = "", changed = 0;
   for (const c of CONTROLS) {
@@ -394,11 +386,6 @@ function renderParams() {
     if (c.grp) html += `<div class="param-grp">${c.grp}</div>`;
     html += `<div class="param-row${ch ? " changed" : ""}" data-p="${c.p}"><label>${c.label}${ch ? ` (기본 ${dflt})` : ""}</label>
       <input type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${v}" aria-label="${c.label}"><output>${(+v).toFixed(c.d)}</output></div>`;
-    // 승하차 데이터로 추정한 값이 있으면 가정값 바로 아래에 함께 보여 준다(scripts/fit_bus_rate.py → data/bus_rate.json)
-    // 기본값이 이미 데이터 추정치면 "쓰는 중"으로, 예전 가정(0.3)과 비교할 수 있는 버튼을 둔다
-    const usingFit = BUS_FIT && Math.abs(v - BUS_FIT.peak_per_hh) < 1e-9;
-    if (c.p === "busPeakPaxPerHH" && BUS_FIT) html += `<div class="param-fit"><span>데이터 추정 <b>${BUS_FIT.peak_per_hh}</b>명${usingFit ? " · 지금 쓰는 값" : ""}</span>${usingFit ? `<button type="button" id="useOldBus">예전 가정 0.3과 비교</button>` : `<button type="button" id="useBusFit">이 값 쓰기</button>`}
-      <p><span>세대당 하루 승차 ${BUS_FIT.daily_per_hh}회 × 첨두 비중 ${Math.round(BUS_FIT.peak_share_assumed * 100)}%(가정)</span><span>단지 ${BUS_FIT.complexes.length}곳의 입주 전후 승하차를 비교했습니다.</span></p></div>`;
   }
   $("#paramList").innerHTML = html;
   $("#paramBadge").textContent = changed ? `${changed}개 변경` : "";
@@ -677,7 +664,7 @@ function applyOps(ops) {
 let nlPending = null;
 async function nlAsk(question) {
   const box = $("#nlResult");
-  box.innerHTML = `<p class="ai-status">AI가 질문을 해석하는 중입니다.</p>`;
+  box.innerHTML = `<p class="ai-status">AI가 시나리오를 생성하는 중입니다.</p>`;
   try {
     const r = await aiCall("/api/whatif", { question, catalog: aiCatalog() });
     nlPending = r.ops;
@@ -691,7 +678,7 @@ async function nlAsk(question) {
 $("#nlForm").addEventListener("submit", (e) => { e.preventDefault(); const q = $("#nlInput").value.trim(); if (q.length >= 2) nlAsk(q); });
 $("#nlExamples").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; $("#nlInput").value = b.textContent; nlAsk(b.textContent); });
 $("#nlResult").addEventListener("click", (e) => {
-  if (e.target.id === "nlApply" && nlPending) { applyOps(nlPending); $("#nlResult").innerHTML = `<p class="ai-status">적용했습니다. 위쪽 요약과 지도에서 바뀐 결과를 확인하세요.</p>`; nlPending = null; }
+  if (e.target.id === "nlApply" && nlPending) { applyOps(nlPending); $("#nlInput").value = ""; $("#nlResult").innerHTML = `<p class="ai-status">적용했습니다. 위쪽 요약과 지도에서 바뀐 결과를 확인하세요.</p>`; nlPending = null; }
   if (e.target.id === "nlCancel") { nlPending = null; $("#nlResult").innerHTML = ""; }
 });
 
