@@ -56,12 +56,16 @@ p, li, dd, dt { text-wrap: pretty; }   /* 한두 단어만 다음 줄로 넘어�
 .readout .lead-line { display: block; font-size: 15px; line-height: 1.65; color: var(--text); }
 .readout .lead-line b { font-weight: 800; }
 .readout .dot { display: inline-block; width: 9px; height: 9px; margin: 0 5px 0 2px; border-radius: 50%; vertical-align: 1px; }
-.readout .delta { display: block; margin-top: 2px; font-size: 13.5px; font-weight: 700; }
-.readout .delta.down { color: var(--good); } .readout .delta.up { color: var(--bad); }
 .readout .over { margin: 10px 0 0; }
-.readout .over div { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; font-size: 13.5px; }
-.readout .over dt { color: var(--mute); }
-.readout .over dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.readout .over div { display: grid; grid-template-columns: 1fr auto; align-items: baseline; padding: 5px 0; border-top: 1px solid var(--line); font-size: 13.5px; }
+.readout .over div:first-child { border-top: 0; }
+.readout .over dt { color: var(--text); }
+.readout .over dd { margin: 0; font-weight: 800; font-variant-numeric: tabular-nums; }
+.readout .over-detail { grid-column: 1 / -1; margin: 1px 0 0; font-size: 12.5px; color: var(--mute); font-variant-numeric: tabular-nums; }
+.readout .total-line { display: block; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--mute); }
+.readout .total-line b { color: var(--text); }
+.readout .delta { margin-left: 6px; font-weight: 700; }
+.readout .delta.down { color: var(--good); } .readout .delta.up { color: var(--bad); }
 .readout .note { display: block; margin-top: 6px; font-size: 12px; color: var(--faint); }
 input[type=range] { width: 100%; height: 22px; background: transparent; accent-color: var(--accent); cursor: pointer; }
 

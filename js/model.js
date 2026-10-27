@@ -19,11 +19,17 @@ export const PARAMS = {
     { label: "도보권 근린공원", minArea: 30000, reach: 1000 },
   ],
   weights: { school: 0.4, bus: 0.35, park: 0.25 },
+  // 이용률(부하 ÷ 정원·수송력) 압박 점수: from이면 0, to이면 1로 선형.
+  // 학교: 예전 방식(100% 초과분만 반영)은 115% 학교도 9점으로 눌려 "정원 초과 학교가 있는데 학교 점수 4점" 모순을 만들었음 → 90%부터 120%까지로.
+  // 버스: 혼잡 체감이 100% 이전에 시작된다고 보고 50%부터 100%까지(기존 값 유지)
+  pressure: { school: { from: 0.9, to: 1.2 }, bus: { from: 0.5, to: 1.0 } },
+  parkTolerance: 0.1, // 공원 "기준 밖" 집계 허용 오차(유치거리의 10%). 단지 좌표가 대표점 하나라 생기는 거리 오차를 감안
 };
 
 export const LEVEL_LABEL = { elem: "초등", mid: "중등", high: "고등" };
 
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const pressure = (u, r) => clamp((u - r.from) / (r.to - r.from));
 
 export function dist(a, b) {
   const R = 6371000, rad = Math.PI / 180;
@@ -94,9 +100,10 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
       else if (!s.f) sc = 100;
       else {
         const over = s.cands.reduce((s2, c) => s2 + c.w * clamp(schoolLoad[c.f.id] / (c.f.cap * P.schoolCapScale) - 1), 0);
+        const util = s.cands.reduce((s2, c) => s2 + c.w * schoolLoad[c.f.id] / (c.f.cap * P.schoolCapScale), 0);
         const far = clamp((s.d - P.walkLimit[lv]) / P.walkLimit[lv]);
-        sc = 100 * (0.6 * over + 0.4 * far);
-        s.over = over; s.load = s.cands.reduce((s2, c) => s2 + c.w * schoolLoad[c.f.id], 0);
+        sc = 100 * (0.6 * pressure(util, P.pressure.school) + 0.4 * far);
+        s.over = over; s.util = util; s.load = s.cands.reduce((s2, c) => s2 + c.w * schoolLoad[c.f.id], 0);
       }
       s.score = sc;
       sum += sc * s.kids; w += s.kids;
@@ -128,8 +135,7 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
     const capSum = x.busRoutes.reduce((s2, id) => s2 + routeCap[id], 0) || 1;
     const util = x.busRoutes.reduce((s2, id) => s2 + ((routeLoad[id] || 0) / routeCap[id]) * (routeCap[id] / capSum), 0);
     x.bus.over = clamp(util - 1); x.bus.util = util; x.bus.cap = capSum; x.bus.nRoutes = x.busRoutes.length;
-    // 이용률 0.5 초과부터 점수 가산(혼잡 체감은 100% 이전에 시작) + 거리
-    x.busScore = 100 * (0.3 * far + 0.7 * clamp((util - 0.5) / 0.5));
+    x.busScore = 100 * (0.3 * far + 0.7 * pressure(util, P.pressure.bus));
   }
 
   // --- 공원: 단계별(규모·유치거리) 최근접 공원까지 거리. 유치거리 안이면 0, 2배 이상이면 100으로 선형, 세 단계 평균 ---
@@ -148,6 +154,18 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
     const ws = P.weights, wsum = ws.school + ws.bus + ws.park || 1;   // 가중치 합이 1이 아니어도 정규화
     x.total = (ws.school * x.schoolScore + ws.bus * x.busScore + ws.park * x.parkScore) / wsum;
   }
+  // 물리 단위 요약(화면 첫 요약용): 입주 단지가 실제로 쓰는 학교·노선만 센다
+  const usedSchools = new Map();
+  for (const x of active) for (const lv of ["elem", "mid", "high"]) for (const { f } of x.school[lv].cands || []) usedSchools.set(f.id, f);
+  const schoolsOver = [...usedSchools.values()].map((f) => ({ name: f.name, util: schoolLoad[f.id] / (f.cap * P.schoolCapScale) }))
+    .filter((s) => s.util > 1).sort((a, b) => b.util - a.util);
+  const routeName = {};
+  for (const f of stops) for (const r of routesOf(f)) routeName[r.id] = r.name;
+  const usedRoutes = new Set(active.flatMap((x) => x.busRoutes || []));
+  const routesOver = [...usedRoutes].map((id) => ({ name: String(routeName[id] ?? id), util: (routeLoad[id] || 0) / routeCap[id] }))
+    .filter((r) => r.util > 1).sort((a, b) => b.util - a.util);
+  const parkOut = active.filter((x) => x.parkTier.some((tr) => tr.short > P.parkTolerance)).length;
+
   const pop = active.reduce((s, x) => s + x.pop, 0);
   const avg = (k) => (pop ? active.reduce((s, x) => s + x[k] * x.pop, 0) / pop : 0);
   return {
@@ -159,6 +177,7 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
     // 학교 초과는 학급당 정원 가정(초 25·중고 29명)에 민감하므로 학교/버스를 나눠 돌려준다. risky = 둘 중 하나라도.
     schoolOver: active.filter((x) => ["elem", "mid", "high"].some((lv) => (x.school[lv] && x.school[lv].over) > 0.0005)).length,
     busOver: active.filter((x) => x.bus.util > 1).length,
+    schoolsOver, schoolsUsed: usedSchools.size, routesOver, routesUsed: usedRoutes.size, parkOut, active: active.length,
     risky: active.filter((x) => ["elem", "mid", "high"].some((lv) => (x.school[lv] && x.school[lv].over) > 0.0005) || x.bus.util > 1).length,
     schools: open.filter((f) => f.type === "school")
       .map((f) => ({ id: f.id, name: f.name, level: f.level, load: schoolLoad[f.id] || 0, cap: f.cap, util: (schoolLoad[f.id] || 0) / f.cap })),

@@ -1,0 +1,733 @@
+{
+ "summary": {
+  "window": [
+   "2025-03",
+   "2026-02"
+  ],
+  "complexes": [
+   [
+    "한신더휴",
+    844,
+    "2025-03"
+   ],
+   [
+    "모아미래도",
+    414,
+    "2025-04"
+   ]
+  ],
+  "n_schools": 45,
+  "spearman": 0.342,
+  "target": [
+   [
+    "마루초등학교",
+    7.43,
+    9
+   ],
+   [
+    "세담초등학교",
+    3.04,
+    15
+   ],
+   [
+    "가수중학교",
+    1.42,
+    10
+   ],
+   [
+    "대호중학교",
+    1.2,
+    1
+   ],
+   [
+    "오산중학교",
+    1.0,
+    -4
+   ]
+  ],
+  "control_mean_delta": -0.85,
+  "control_share_up": 0.12,
+  "control_top": [
+   [
+    "세마중학교",
+    3
+   ],
+   [
+    "오산초등학교",
+    2
+   ],
+   [
+    "운암초등학교",
+    1
+   ],
+   [
+    "오산원당초등학교",
+    1
+   ],
+   [
+    "양산초등학교",
+    1
+   ]
+  ]
+ },
+ "schools": [
+  {
+   "name": "오산고등학교",
+   "level": "high",
+   "opened": 1954,
+   "students_2026": 947,
+   "classes_2026_alimi": 30,
+   "classes": {
+    "2025": 30,
+    "2026": 30
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "오산중학교",
+   "level": "mid",
+   "opened": 1950,
+   "students_2026": 453,
+   "classes_2026_alimi": 18,
+   "classes": {
+    "2025": 22,
+    "2026": 18
+   },
+   "actual_delta": -4,
+   "pred_students": 25.2,
+   "pred_delta": 1.0
+  },
+  {
+   "name": "세마고등학교",
+   "level": "high",
+   "opened": 2010,
+   "students_2026": 953,
+   "classes_2026_alimi": 30,
+   "classes": {
+    "2025": 30,
+    "2026": 30
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "오산원일초등학교",
+   "level": "elem",
+   "opened": 2007,
+   "students_2026": 704,
+   "classes_2026_alimi": 30,
+   "classes": {
+    "2025": 31,
+    "2026": 30
+   },
+   "actual_delta": -1,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "성호고등학교",
+   "level": "high",
+   "opened": 1996,
+   "students_2026": 915,
+   "classes_2026_alimi": 30,
+   "classes": {
+    "2025": 30,
+    "2026": 30
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "성호중학교",
+   "level": "mid",
+   "opened": 1992,
+   "students_2026": 836,
+   "classes_2026_alimi": 26,
+   "classes": {
+    "2025": 26,
+    "2026": 26
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "대호초등학교",
+   "level": "elem",
+   "opened": 2005,
+   "students_2026": 521,
+   "classes_2026_alimi": 24,
+   "classes": {
+    "2025": 25,
+    "2026": 24
+   },
+   "actual_delta": -1,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "대호중학교",
+   "level": "mid",
+   "opened": 2003,
+   "students_2026": 513,
+   "classes_2026_alimi": 21,
+   "classes": {
+    "2025": 20,
+    "2026": 21
+   },
+   "actual_delta": 1,
+   "pred_students": 29.4,
+   "pred_delta": 1.2
+  },
+  {
+   "name": "세교고등학교",
+   "level": "high",
+   "opened": 2012,
+   "students_2026": 953,
+   "classes_2026_alimi": 30,
+   "classes": {
+    "2025": 30,
+    "2026": 30
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "필봉초등학교",
+   "level": "elem",
+   "opened": 2010,
+   "students_2026": 493,
+   "classes_2026_alimi": 22,
+   "classes": {
+    "2025": 26,
+    "2026": 22
+   },
+   "actual_delta": -4,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "금암초등학교",
+   "level": "elem",
+   "opened": 2009,
+   "students_2026": 306,
+   "classes_2026_alimi": 15,
+   "classes": {
+    "2025": 17,
+    "2026": 15
+   },
+   "actual_delta": -2,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "문시초등학교",
+   "level": "elem",
+   "opened": 2010,
+   "students_2026": 516,
+   "classes_2026_alimi": 23,
+   "classes": {
+    "2025": 25,
+    "2026": 23
+   },
+   "actual_delta": -2,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "문시중학교",
+   "level": "mid",
+   "opened": 2010,
+   "students_2026": 1138,
+   "classes_2026_alimi": 33,
+   "classes": {
+    "2025": 36,
+    "2026": 33
+   },
+   "actual_delta": -3,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "오산대원초등학교",
+   "level": "elem",
+   "opened": 2003,
+   "students_2026": 462,
+   "classes_2026_alimi": 22,
+   "classes": {
+    "2025": 24,
+    "2026": 22
+   },
+   "actual_delta": -2,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "원동초등학교",
+   "level": "elem",
+   "opened": 1996,
+   "students_2026": 494,
+   "classes_2026_alimi": 23,
+   "classes": {
+    "2025": 25,
+    "2026": 23
+   },
+   "actual_delta": -2,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "운암중학교",
+   "level": "mid",
+   "opened": 1998,
+   "students_2026": 751,
+   "classes_2026_alimi": 23,
+   "classes": {
+    "2025": 23,
+    "2026": 23
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "운산초등학교",
+   "level": "elem",
+   "opened": 2000,
+   "students_2026": 471,
+   "classes_2026_alimi": 21,
+   "classes": {
+    "2025": 23,
+    "2026": 21
+   },
+   "actual_delta": -2,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "운천고등학교",
+   "level": "high",
+   "opened": 2003,
+   "students_2026": 956,
+   "classes_2026_alimi": 30,
+   "classes": {
+    "2025": 30,
+    "2026": 30
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "운천초등학교",
+   "level": "elem",
+   "opened": 2000,
+   "students_2026": 579,
+   "classes_2026_alimi": 25,
+   "classes": {
+    "2025": 27,
+    "2026": 25
+   },
+   "actual_delta": -2,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "운천중학교",
+   "level": "mid",
+   "opened": 2001,
+   "students_2026": 778,
+   "classes_2026_alimi": 25,
+   "classes": {
+    "2025": 26,
+    "2026": 25
+   },
+   "actual_delta": -1,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "오산원일중학교",
+   "level": "mid",
+   "opened": 2007,
+   "students_2026": 1032,
+   "classes_2026_alimi": 31,
+   "classes": {
+    "2025": 31,
+    "2026": 31
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "운암고등학교",
+   "level": "high",
+   "opened": 2007,
+   "students_2026": 774,
+   "classes_2026_alimi": 24,
+   "classes": {
+    "2025": 24,
+    "2026": 24
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "운암초등학교",
+   "level": "elem",
+   "opened": 1999,
+   "students_2026": 260,
+   "classes_2026_alimi": 13,
+   "classes": {
+    "2025": 12,
+    "2026": 13
+   },
+   "actual_delta": 1,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "성호초등학교",
+   "level": "elem",
+   "opened": 1913,
+   "students_2026": 217,
+   "classes_2026_alimi": 13,
+   "classes": {
+    "2025": 12,
+    "2026": 12
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "성산초등학교",
+   "level": "elem",
+   "opened": 1979,
+   "students_2026": 86,
+   "classes_2026_alimi": 7,
+   "classes": {
+    "2025": 7,
+    "2026": 7
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "오산정보고등학교",
+   "level": "high",
+   "opened": 1962,
+   "students_2026": 380,
+   "classes_2026_alimi": 20,
+   "classes": {
+    "2025": 23,
+    "2026": 20
+   },
+   "actual_delta": -3,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "오산초등학교",
+   "level": "elem",
+   "opened": 1945,
+   "students_2026": 718,
+   "classes_2026_alimi": 31,
+   "classes": {
+    "2025": 29,
+    "2026": 31
+   },
+   "actual_delta": 2,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "가수초등학교",
+   "level": "elem",
+   "opened": 2005,
+   "students_2026": 457,
+   "classes_2026_alimi": 22,
+   "classes": {
+    "2025": 24,
+    "2026": 22
+   },
+   "actual_delta": -2,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "매홀초등학교",
+   "level": "elem",
+   "opened": 1993,
+   "students_2026": 151,
+   "classes_2026_alimi": 10,
+   "classes": {
+    "2025": 10,
+    "2026": 10
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "세마초등학교",
+   "level": "elem",
+   "opened": 2019,
+   "students_2026": 482,
+   "classes_2026_alimi": 22,
+   "classes": {
+    "2025": 22,
+    "2026": 22
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "화성초등학교",
+   "level": "elem",
+   "opened": 1966,
+   "students_2026": 267,
+   "classes_2026_alimi": 14,
+   "classes": {
+    "2025": 14,
+    "2026": 14
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "매홀고등학교",
+   "level": "high",
+   "opened": 2014,
+   "students_2026": 956,
+   "classes_2026_alimi": 30,
+   "classes": {
+    "2025": 30,
+    "2026": 30
+   },
+   "actual_delta": 0,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "매홀중학교",
+   "level": "mid",
+   "opened": 1955,
+   "students_2026": 1135,
+   "classes_2026_alimi": 34,
+   "classes": {
+    "2025": 36,
+    "2026": 34
+   },
+   "actual_delta": -2,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "삼미초등학교",
+   "level": "elem",
+   "opened": 1945,
+   "students_2026": 439,
+   "classes_2026_alimi": 19,
+   "classes": {
+    "2025": 20,
+    "2026": 19
+   },
+   "actual_delta": -1,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "세미초등학교",
+   "level": "elem",
+   "opened": 2014,
+   "students_2026": 1317,
+   "classes_2026_alimi": 55,
+   "classes": {
+    "2025": 57,
+    "2026": 55
+   },
+   "actual_delta": -2,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "수청초등학교",
+   "level": "elem",
+   "opened": 2006,
+   "students_2026": 417,
+   "classes_2026_alimi": 20,
+   "classes": {
+    "2025": 21,
+    "2026": 20
+   },
+   "actual_delta": -1,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "광성초등학교",
+   "level": "elem",
+   "opened": 2020,
+   "students_2026": 416,
+   "classes_2026_alimi": 19,
+   "classes": {
+    "2025": 23,
+    "2026": 19
+   },
+   "actual_delta": -4,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "세마중학교",
+   "level": "mid",
+   "opened": 2010,
+   "students_2026": 1122,
+   "classes_2026_alimi": 32,
+   "classes": {
+    "2025": 29,
+    "2026": 32
+   },
+   "actual_delta": 3,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "세담초등학교",
+   "level": "elem",
+   "opened": 2024,
+   "students_2026": 1066,
+   "classes_2026_alimi": 46,
+   "classes": {
+    "2025": 38,
+    "2026": 53
+   },
+   "actual_delta": 15,
+   "pred_students": 70.4,
+   "pred_delta": 3.04
+  },
+  {
+   "name": "마루초등학교",
+   "level": "elem",
+   "opened": 2025,
+   "students_2026": 251,
+   "classes_2026_alimi": 13,
+   "classes": {
+    "2025": 6,
+    "2026": 15
+   },
+   "actual_delta": 9,
+   "pred_students": 143.5,
+   "pred_delta": 7.43
+  },
+  {
+   "name": "마루고등학교",
+   "level": "high",
+   "opened": 2026,
+   "students_2026": 370,
+   "classes_2026_alimi": 14,
+   "classes": {
+    "2025": 0,
+    "2026": 14
+   },
+   "actual_delta": null,
+   "pred_students": 59.1,
+   "pred_delta": 2.24
+  },
+  {
+   "name": "가수중학교",
+   "level": "mid",
+   "opened": 2025,
+   "students_2026": 567,
+   "classes_2026_alimi": 24,
+   "classes": {
+    "2025": 14,
+    "2026": 24
+   },
+   "actual_delta": 10,
+   "pred_students": 33.5,
+   "pred_delta": 1.42
+  },
+  {
+   "name": "경기오산소프트웨어고등학교",
+   "level": "high",
+   "opened": 2026,
+   "students_2026": 100,
+   "classes_2026_alimi": 5,
+   "classes": {
+    "2025": 0,
+    "2026": 5
+   },
+   "actual_delta": null,
+   "pred_students": 29.0,
+   "pred_delta": 1.45
+  },
+  {
+   "name": "다온초등학교",
+   "level": "elem",
+   "opened": 2020,
+   "students_2026": 761,
+   "classes_2026_alimi": 35,
+   "classes": {
+    "2025": 37,
+    "2026": 35
+   },
+   "actual_delta": -2,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "오산원당초등학교",
+   "level": "elem",
+   "opened": 2020,
+   "students_2026": 720,
+   "classes_2026_alimi": 31,
+   "classes": {
+    "2025": 30,
+    "2026": 31
+   },
+   "actual_delta": 1,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "오산고현초등학교",
+   "level": "elem",
+   "opened": 2020,
+   "students_2026": 733,
+   "classes_2026_alimi": 33,
+   "classes": {
+    "2025": 36,
+    "2026": 33
+   },
+   "actual_delta": -3,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  },
+  {
+   "name": "양산초등학교",
+   "level": "elem",
+   "opened": 2020,
+   "students_2026": 498,
+   "classes_2026_alimi": 24,
+   "classes": {
+    "2025": 23,
+    "2026": 24
+   },
+   "actual_delta": 1,
+   "pred_students": 0.0,
+   "pred_delta": 0.0
+  }
+ ]
+}

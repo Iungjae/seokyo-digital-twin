@@ -1,5 +1,5 @@
 import { CENTER as SAMPLE_CENTER, YEARS, COMPLEXES as SAMPLE_COMPLEXES, FACILITIES as SAMPLE_FAC } from "./data.js";
-import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=guide2";
+import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=scale2";
 
 // 실제 시설(OSM 기반, scripts/build_data.py 산출). 없으면 샘플 사용.
 let FACILITIES = SAMPLE_FAC, facSource = "샘플";
@@ -195,15 +195,22 @@ function renderOverview(res, base) {
       <span class="tl-year">${y}</span></button>`;
   }).join("");
 
-  // 한 문장 = 한 줄. 초과 단지 수는 이름–값 표로
+  // 첫 요약은 물리 단위(정원을 넘는 학교, 이용률 100%를 넘는 노선, 기준 밖 단지)가 주인공. 종합 점수는 보조
+  const pct = (u) => `${Math.round(u * 100)}%`;
+  const top3 = (arr, f) => arr.slice(0, 3).map(f).join(" · ") + (arr.length > 3 ? ` 외 ${arr.length - 3}` : "");
+  const row = (label, val, detail) => `<div><dt>${label}</dt><dd>${val}</dd>${detail ? `<p class="over-detail">${detail}</p>` : ""}</div>`;
+  const so = res.schoolsOver, ro = res.routesOver;
+  const short = (n) => n.replace("등학교", "").replace("학교", "");
   const d = res.summary.total - base.summary.total;
-  const delta = Math.abs(d) > 0.05 ? `<span class="delta ${d < 0 ? "down" : "up"}">현재 계획보다 ${Math.abs(d).toFixed(1)}점 ${d < 0 ? "낮습니다" : "높습니다"}.</span>` : "";
-  const { schoolOver: s, busOver: b } = res;
+  const delta = Math.abs(d) > 0.05 ? ` <span class="delta ${d < 0 ? "down" : "up"}">현재 계획보다 ${Math.abs(d).toFixed(1)}점 ${d < 0 ? "낮음" : "높음"}</span>` : "";
   $("#readout").innerHTML =
     `<span class="lead-line"><b>${state.year}년</b>까지 <b>${res.hh.toLocaleString()}세대</b>가 입주합니다.</span>` +
-    `<span class="lead-line">종합 부족도는 <i class="dot" style="background:${color(res.summary.total)}"></i><b>${res.summary.total.toFixed(0)}점</b>입니다.</span>` + delta +
-    `<dl class="over"><div><dt>학교 정원 초과 단지</dt><dd>${s}곳</dd></div><div><dt>버스 수송력 초과 단지</dt><dd>${b}곳</dd></div></dl>` +
-    (s ? `<span class="note">학교 수치는 학급당 정원 가정에 민감합니다.</span>` : "");
+    `<dl class="over">` +
+    row("정원을 넘는 배정 학교", so.length ? `${so.length}곳` : "없음", so.length ? top3(so, (x) => `${short(x.name)} ${pct(x.util)}`) : "") +
+    row("이용률 100%를 넘는 버스 노선", ro.length ? `${ro.length}개` : "없음", ro.length ? top3(ro, (x) => `${x.name}번 ${pct(x.util)}`) : "") +
+    row("공원 유치거리 밖 단지", `${res.parkOut}곳 / ${res.active}곳`, "") + `</dl>` +
+    `<span class="total-line">종합 부족도 <i class="dot" style="background:${color(res.summary.total)}"></i><b>${res.summary.total.toFixed(0)}점</b>${delta}</span>` +
+    (so.length ? `<span class="note">학교 정원은 학급 수 × 학급당 25·29명으로 가정했습니다.</span>` : "");
 }
 const pickYear = (y) => { state.year = y; $("#year").value = y; refresh(); };
 $("#timeline").addEventListener("click", (e) => { const b = e.target.closest("[data-year]"); if (b) pickYear(+b.dataset.year); });
@@ -366,7 +373,7 @@ const CONTROLS = [
   { p: "busPaxPerTrip", label: "회당 수용 승객(명)", min: 25, max: 70, step: 5, d: 0 },
   { p: "busBackground", label: "기존 이용객 선점 비율", min: 0, max: 0.6, step: 0.05, d: 2 },
   { p: "busCatch", label: "버스 도보권 반경(m)", min: 300, max: 1000, step: 100, d: 0 },
-  { grp: "종합 가중치(합은 자동 정규화)", p: "weights.school", label: "학교", min: 0, max: 1, step: 0.05, d: 2 },
+  { grp: "종합 가중치(정책 우선순위에 따라 정하는 값)", p: "weights.school", label: "학교", min: 0, max: 1, step: 0.05, d: 2 },
   { p: "weights.bus", label: "버스", min: 0, max: 1, step: 0.05, d: 2 },
   { p: "weights.park", label: "공원", min: 0, max: 1, step: 0.05, d: 2 },
 ];
