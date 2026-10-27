@@ -166,15 +166,7 @@ function draw(res) {
 }
 
 function renderPanel(res, base) {
-  $("#yearLabel").textContent = state.year;
-  $("#kHH").textContent = res.hh.toLocaleString();
-  $("#kTotal").textContent = res.summary.total.toFixed(0);
-  $("#kSchoolOver").textContent = res.schoolOver;
-  $("#kBusOver").textContent = res.busOver;
-  const d = res.summary.total - base.summary.total;
-  const el = $("#kDelta");
-  el.textContent = Math.abs(d) > 0.05 ? `${d < 0 ? "▼" : "▲"}${Math.abs(d).toFixed(1)}` : "";
-  el.className = d < 0 ? "down" : "up";
+  renderOverview(res, base);
   $("#mapYear").textContent = state.year;
   $("#legendTitle").textContent = { total: "종합 부족도", school: "학교 부족도", bus: "버스 부족도", park: "공원 부족도" }[state.layer];
 
@@ -191,6 +183,39 @@ function renderPanel(res, base) {
   renderSchools(res, base);
   renderTrend();
 }
+
+// 상단 요약: 연도 막대(누적 입주 세대 높이 + 종합 부족도 색) = 연도 선택기, 아래에 선택 연도를 문장으로
+function renderOverview(res, base) {
+  const byYear = YEARS.map((y) => (y === state.year ? res : run(y)));
+  const maxHH = Math.max(1, ...byYear.map((r) => r.hh));
+  $("#timeline").innerHTML = byYear.map((r, i) => {
+    const y = YEARS[i], on = y === state.year, t = r.summary.total;
+    return `<button type="button" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" data-year="${y}" class="tl-col${on ? " on" : ""}"
+      aria-label="${y}년, ${r.hh.toLocaleString()}세대, 종합 부족도 ${t.toFixed(0)}점">
+      <span class="tl-score">${t.toFixed(0)}</span>
+      <span class="tl-bar"><i style="height:${Math.max(4, (r.hh / maxHH) * 100)}%;background:${color(t)}"></i></span>
+      <span class="tl-year">${y}</span></button>`;
+  }).join("");
+
+  const d = res.summary.total - base.summary.total;
+  const delta = Math.abs(d) > 0.05 ? ` <em class="${d < 0 ? "down" : "up"}">현재 계획보다 ${Math.abs(d).toFixed(1)}점 ${d < 0 ? "낮음" : "높음"}</em>` : "";
+  const { schoolOver: s, busOver: b } = res;
+  const over = !s && !b ? "학교 정원이나 버스 수송력을 넘는 단지는 아직 없습니다."
+    : !s ? `버스 수송력을 넘는 단지가 <b>${b}곳</b> 있고, 학교 정원을 넘는 단지는 없습니다.`
+    : !b ? `학교 정원을 넘는 단지가 <b>${s}곳</b> 있고, 버스 수송력을 넘는 단지는 없습니다.`
+    : `학교 정원을 넘는 단지 <b>${s}곳</b>, 버스 수송력을 넘는 단지 <b>${b}곳</b>.`;
+  $("#readout").innerHTML =
+    `<span class="lead-line"><b>${state.year}년</b>까지 <b>${res.hh.toLocaleString()}세대</b>가 입주하면 종합 부족도는 <span class="nw"><i class="dot" style="background:${color(res.summary.total)}"></i><b>${res.summary.total.toFixed(0)}점</b></span>입니다.${delta}</span>` +
+    `<span class="over-line">${over}${s ? ' <small>학교 수치는 학급당 정원 가정에 민감합니다.</small>' : ""}</span>`;
+}
+const pickYear = (y) => { state.year = y; $("#year").value = y; refresh(); };
+$("#timeline").addEventListener("click", (e) => { const b = e.target.closest("[data-year]"); if (b) pickYear(+b.dataset.year); });
+$("#timeline").addEventListener("keydown", (e) => {   // 라디오 그룹 관례: 좌우 화살표로 연도 이동
+  const step = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1 }[e.key]; if (!step) return;
+  e.preventDefault();
+  const i = Math.min(YEARS.length - 1, Math.max(0, YEARS.indexOf(state.year) + step));
+  pickYear(YEARS[i]); $(`#timeline [data-year="${YEARS[i]}"]`).focus();
+});
 
 // 학교별 이용률(부하/정원) 상위 + 시나리오 전후 비교. 기존 재학생은 학교알리미 실측, 정원은 학급수x학급당정원(가정)
 function renderSchools(res, base) {

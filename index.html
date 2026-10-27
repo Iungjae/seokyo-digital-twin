@@ -6,27 +6,21 @@
 <title>입주 전에 인프라 부족을 알려주는 ‘세교 디지털트윈’</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="style.css?v=top1">
+<link rel="stylesheet" href="style.css?v=tl1">
 </head>
 <body>
 <aside id="panel">
   <header class="top">
-    <p class="lead">입주 전에 인프라 부족을 알려주는</p>
     <h1>세교 디지털트윈</h1>
+    <p class="lead">입주 전에 인프라 부족을 알려주는 시뮬레이터</p>
   </header>
 
-  <!-- 입주 시점과 핵심 지표를 한 카드에: 연도를 바꾸면 바로 아래 숫자가 바뀌는 관계가 보이게 -->
-  <section class="card overview" aria-label="입주 시점과 핵심 지표">
-    <div class="year-head"><label for="year">입주 시점</label><b><span id="yearLabel">2026</span>년</b></div>
-    <input id="year" type="range" min="2026" max="2030" step="1" value="2026">
-    <div class="ticks"><span>2026</span><span>2027</span><span>2028</span><span>2029</span><span>2030</span></div>
-    <dl class="stats">
-      <div><dt>입주 세대</dt><dd><b id="kHH">-</b><small>세대</small></dd></div>
-      <div><dt>종합 부족도</dt><dd><b id="kTotal">-</b><small>/ 100</small><em id="kDelta"></em></dd></div>
-      <div title="배정 학교 정원을 넘는 단지 수. 정원 = 학급수 × 학급당 정원(초 25·중고 29명, 가정)"><dt>학교 정원 초과 단지</dt><dd><b id="kSchoolOver">-</b><small>곳</small></dd></div>
-      <div title="도보권 버스 노선의 첨두 수송력을 넘는 단지 수. 세대당 이용객·회당 승객 가정에 따라 달라짐"><dt>버스 수송력 초과 단지</dt><dd><b id="kBusOver">-</b><small>곳</small></dd></div>
-    </dl>
-    <p class="stats-note">학교 초과 단지 수는 학급당 정원 가정에 민감합니다.</p>
+  <!-- 연도 막대가 곧 입주 시점 선택기: 높이 = 누적 입주 세대, 색·숫자 = 그해 종합 부족도. 아래는 선택 연도를 문장으로 요약 -->
+  <section class="card overview" aria-label="입주 시점과 요약">
+    <div class="tl-head"><span>입주 시점</span><small>높이 세대 수 · 색 부족도</small></div>
+    <div class="timeline" id="timeline" role="radiogroup" aria-label="입주 시점"></div>
+    <input id="year" type="range" min="2026" max="2030" step="1" value="2026" hidden>
+    <p class="readout" id="readout" aria-live="polite"></p>
   </section>
 
   <div class="seg" id="layers" role="group" aria-label="지도 색상 기준">
@@ -149,6 +143,6 @@
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="js/app.js?v=top1"></script>
+<script type="module" src="js/app.js?v=tl1"></script>
 </body>
 </html>
