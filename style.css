@@ -65,7 +65,6 @@ p, li, dd, dt { text-wrap: pretty; }   /* 한두 단어만 다음 줄로 넘어�
 .readout .total-line b { color: var(--text); }
 .readout .delta { margin-left: 6px; font-weight: 700; }
 .readout .delta.down { color: var(--good); } .readout .delta.up { color: var(--bad); }
-.readout .note { display: block; margin-top: 6px; font-size: 12px; color: var(--faint); }
 input[type=range] { width: 100%; height: 22px; background: transparent; accent-color: var(--accent); cursor: pointer; }
 
 
@@ -295,10 +294,14 @@ body.map-only #stage { width: 100vw; }
 .g-ok { background: #E7F6EF; color: #1E7A52; }
 .g-warn { background: #FFF3D6; color: #8A5A00; }
 .g-bad { background: #FDECEC; color: #B42318; }
-.readout .grade-why { display: block; margin-top: 4px; font-size: 12.5px; color: var(--mute); }
 
 /* 세부 정보 툴팁(지도 원 툴팁과 같은 모양) */
 .tip { position: fixed; z-index: 2000; max-width: min(460px, calc(100vw - 16px)); padding: 6px 10px; border-radius: var(--r-sm); background: var(--surface); box-shadow: var(--shadow-float); font: 600 12.5px/1.6 "Pretendard Variable", Pretendard, sans-serif; color: var(--text); pointer-events: none; }
 .tip span { display: block; white-space: nowrap; }
 .has-tip { text-decoration: underline dotted var(--faint); text-underline-offset: 3px; cursor: help; }
 .has-tip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+/* 도움말(?) 아이콘: 보충 설명은 마우스를 올리면 툴팁으로 */
+.help { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 2px; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--surface); color: var(--mute); font-size: 11px; font-weight: 700; line-height: 1; vertical-align: 1px; cursor: help; }
+.help:hover, .help:focus-visible { border-color: var(--accent); color: var(--accent-ink); }
+.hint:empty { display: none; }

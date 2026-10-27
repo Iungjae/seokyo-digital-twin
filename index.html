@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <!-- AI 중계 서버(ai-worker) 주소. 비어 있으면 AI 기능은 "연결 안 됨"으로 표시된다 -->
 <meta name="seokyo-ai" content="https://seokyo-twin-ai.iungjae48.workers.dev">
-<link rel="stylesheet" href="style.css?v=tip3">
+<link rel="stylesheet" href="style.css?v=help1">
 </head>
 <body>
 <aside id="panel">
@@ -19,7 +19,7 @@
 
   <!-- 연도 막대가 곧 입주 시점 선택기: 높이 = 누적 입주 세대, 색·숫자 = 그해 종합 부족도. 아래는 선택 연도를 문장으로 요약 -->
   <section class="card overview" aria-label="입주 시점과 요약">
-    <div class="tl-head"><span>입주 시점</span><small class="has-tip" tabindex="0" data-tip="막대 높이: 그해까지 입주한 세대 수&#10;막대 색: 단계(초록 여유 · 노랑 주의 · 빨강 부족)&#10;부족: 정원·수송력을 넘는 곳이 있음&#10;주의: 90% 이상인 곳이 있음">높이 세대 수 · 색 단계</small></div>
+    <div class="tl-head"><span>입주 시점 <span class="help" tabindex="0" aria-label="도움말" data-tip="막대 높이: 그해까지 입주한 세대 수&#10;막대 색: 단계(초록 여유 · 노랑 주의 · 빨강 부족)&#10;부족: 정원·수송력을 넘는 곳이 있음&#10;주의: 90% 이상인 곳이 있음&#10;막대를 누르면 그 연도로 바뀝니다.">?</span></span></div>
     <div class="timeline" id="timeline" role="radiogroup" aria-label="입주 시점"></div>
     <input id="year" type="range" min="2026" max="2030" step="1" value="2026" hidden>
     <p class="readout" id="readout" aria-live="polite"></p>
@@ -51,7 +51,7 @@
     </section>
 
     <section class="card">
-      <h2>학교 이용률 <small>정원 대비 학생 수 상위 6곳</small></h2>
+      <h2>학교 이용률 <span class="help" tabindex="0" aria-label="도움말" data-tip="정원 대비 학생 수입니다.&#10;가장 붐비는 6곳을 보여 줍니다.&#10;막대에 마우스를 올리면 학생 수와 정원이 나옵니다.">?</span></h2>
       <div id="schoolsBox"></div>
     </section>
 
@@ -59,7 +59,7 @@
       <h2>정책 리포트</h2>
       <div id="report"></div>
       <div class="ai-box">
-        <div class="ai-head"><b>AI 리포트</b><button id="aiReportBtn" type="button" class="ai-btn">AI 리포트 쓰기</button></div>
+        <div class="ai-head"><b>AI 리포트 <span class="help" tabindex="0" aria-label="도움말" data-tip="Claude Haiku 5.5가 화면 수치를 근거로 쓴 문장입니다.&#10;문장마다 근거 번호(F1, F2…)가 붙습니다.&#10;근거에 없는 숫자를 쓴 문장은 서버가 걸러 냅니다.">?</span></b><button id="aiReportBtn" type="button" class="ai-btn">AI 리포트 쓰기</button></div>
         <div id="aiReport" aria-live="polite"></div>
       </div>
     </section>
@@ -67,8 +67,7 @@
 
   <div class="pane" data-pane="scenario" hidden>
     <section class="card">
-      <h2>말로 시나리오 만들기</h2>
-      <p class="hint"><span>질문을 쓰면 AI가 화면 조작으로 바꿉니다.</span><span>적용하기 전에 바뀌는 내용을 먼저 보여 드립니다.</span></p>
+      <h2>말로 시나리오 만들기 <span class="help" tabindex="0" aria-label="도움말" data-tip="질문을 쓰면 AI가 화면 조작으로 바꿉니다.&#10;적용하기 전에 바뀌는 내용을 먼저 보여 드립니다.&#10;결과 수치는 AI가 아니라 모델이 계산합니다.">?</span></h2>
       <form id="nlForm" class="row save-row"><input id="nlInput" type="text" maxlength="200" placeholder="예: 우미린 입주를 2029년으로 미루면?" aria-label="시나리오 질문"><button type="submit" class="primary">생성</button></form>
       <div class="nl-examples" id="nlExamples">
         <button type="button">우미린 입주를 2029년으로 미루면?</button>
@@ -79,7 +78,7 @@
     </section>
 
     <section class="card">
-      <h2>시설 추가</h2>
+      <h2>시설 추가 <span class="help" tabindex="0" aria-label="도움말" data-tip="버튼을 고르고 지도를 클릭하면 시설이 생깁니다.&#10;시설은 선택한 연도부터 열립니다.&#10;되돌리기는 마지막에 추가한 시설을 지웁니다.">?</span></h2>
       <div id="tools">
         <button data-tool="school-elem">초등학교</button>
         <button data-tool="school-mid">중학교</button>
@@ -88,14 +87,13 @@
         <button data-tool="seokyo21">세교2-1 통합학교</button>
         <button data-tool="newcx">신규 단지</button>
       </div>
-      <p class="hint" id="toolHint"><span>버튼을 고르고 지도를 클릭하면 시설이 생깁니다.</span><span>시설은 선택한 연도부터 열립니다.</span></p>
+      <p class="hint" id="toolHint"></p>
       <div class="row"><button id="undo">되돌리기</button><button id="reset">시나리오 초기화</button></div>
       <ul id="added"></ul>
     </section>
 
     <section class="card">
-      <h2>입주계획 편집</h2>
-      <p class="hint"><span>세대수나 입주 연도를 바꾸면 바로 반영됩니다.</span><span>0세대로 두면 계산에서 빠집니다.</span><span>2026년 전 입주분은 학교 현원에 들어 있습니다.</span></p>
+      <h2>입주계획 편집 <span class="help" tabindex="0" aria-label="도움말" data-tip="세대수나 입주 연도를 바꾸면 바로 반영됩니다.&#10;0세대로 두면 계산에서 빠집니다.&#10;2026년 전 입주분은 학교 현원에 들어 있습니다.">?</span></h2>
       <div id="planList"></div>
       <div class="row"><button id="planReset">입주계획 초기화</button></div>
     </section>
@@ -103,8 +101,8 @@
 
   <div class="pane" data-pane="rec" hidden>
     <section class="card">
-      <h2>최적 입지 추천</h2>
-      <p class="hint" id="recStatus"><span>부족도를 가장 많이 줄이는 위치를 찾습니다.</span><span>선택한 연도를 기준으로 계산합니다.</span></p>
+      <h2>최적 입지 추천 <span class="help" tabindex="0" aria-label="도움말" data-tip="부족도를 가장 많이 줄이는 위치를 찾습니다.&#10;선택한 연도를 기준으로 계산합니다.&#10;후보는 200m 격자점이라 부지 확정이 아닙니다.">?</span></h2>
+      <p class="hint" id="recStatus"></p>
       <div class="row rec-controls">
         <select id="recType" aria-label="추천할 시설 종류">
           <option value="school-elem">초등학교</option>
@@ -122,16 +120,15 @@
   <div class="pane" data-pane="settings" hidden>
     <section class="card">
       <details id="paramBox" open>
-        <summary>가정값 <span id="paramBadge" class="badge"></span></summary>
-        <p class="hint"><span>점수는 모두 아래 가정에 따라 달라집니다.</span><span>절대 점수보다 <b>순위와 방향</b>을 보세요.</span><span>기준선은 항상 기본 가정으로 계산합니다.</span></p>
+        <summary>가정값 <span class="help" tabindex="0" aria-label="도움말" data-tip="점수는 모두 아래 가정에 따라 달라집니다.&#10;절대 점수보다 순위와 방향을 보세요.&#10;기준선은 항상 기본 가정으로 계산합니다.">?</span> <span id="paramBadge" class="badge"></span></summary>
         <div id="paramList"></div>
         <div class="row"><button id="paramReset">가정값 기본으로</button></div>
       </details>
     </section>
 
     <section class="card">
-      <h2>시나리오 저장·비교</h2>
-      <p class="hint" id="scHint"><span>지금 상태를 저장해 나란히 비교합니다.</span><span>변화는 기준선(현재 계획) 대비 값입니다.</span></p>
+      <h2>시나리오 저장·비교 <span class="help" tabindex="0" aria-label="도움말" data-tip="지금 상태를 저장해 나란히 비교합니다.&#10;변화는 기준선(현재 계획) 대비 값입니다.&#10;저장한 시나리오는 이 브라우저에만 보관됩니다.">?</span></h2>
+      <p class="hint" id="scHint"></p>
       <div class="row save-row"><input id="scName" type="text" placeholder="시나리오 이름" maxlength="20" aria-label="시나리오 이름"><button id="scSave" class="primary">저장</button></div>
       <div id="scTable"></div>
     </section>
@@ -163,6 +160,6 @@
 </dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="js/app.js?v=tip3"></script>
+<script type="module" src="js/app.js?v=help1"></script>
 </body>
 </html>

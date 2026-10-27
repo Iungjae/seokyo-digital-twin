@@ -1,5 +1,5 @@
 import { CENTER as SAMPLE_CENTER, YEARS, COMPLEXES as SAMPLE_COMPLEXES, FACILITIES as SAMPLE_FAC } from "./data.js";
-import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=tip3";
+import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=help1";
 
 // 실제 시설(OSM 기반, scripts/build_data.py 산출). 없으면 샘플 사용.
 let FACILITIES = SAMPLE_FAC, facSource = "샘플";
@@ -208,6 +208,9 @@ document.addEventListener("focusout", hideTip);
 $("#panel").addEventListener("scroll", hideTip);
 // 툴팁 속성 문자열(따옴표 이스케이프, 줄은 \n으로 잇는다)
 const tipAttr = (...ls) => `data-tip="${esc(ls.filter(Boolean).join("\n"))}"`;
+// 도움말(?) 아이콘: 보충 설명은 화면에 늘어놓지 않고 아이콘에 마우스를 올리면 보여 준다
+const help = (...ls) => `<span class="help" tabindex="0" aria-label="도움말" ${tipAttr(...ls)}>?</span>`;
+document.addEventListener("click", (e) => { if (e.target.closest(".help")) e.preventDefault(); });   // 접기 제목(summary) 안에서 눌러도 접히지 않게
 const PARK_SHORT = { "어린이공원급": "어린이공원", "근린생활권 근린공원": "1만㎡ 공원", "도보권 근린공원": "3만㎡ 공원" };
 
 // 단계 이유를 한 문장으로: 가장 붐비는 학교·노선과 그 이용률
@@ -234,7 +237,7 @@ function renderOverview(res, base) {
   // 첫 요약은 물리 단위(정원을 넘는 학교, 이용률 100%를 넘는 노선, 기준 밖 단지)가 주인공. 종합 점수는 보조
   const pct = (u) => `${Math.round(u * 100)}%`;
   // 값("3곳" 등)에 마우스를 올리면 어느 학교·노선·단지인지 툴팁으로(지도 원과 같은 방식)
-  const row = (label, val, tips) => `<div><dt>${label}</dt><dd><span class="has-tip" tabindex="0" ${tipAttr(...tips)}>${val}</span></dd></div>`;
+  const row = (label, val, tips, helpTip) => `<div><dt>${label}${helpTip ? ` ${help(...helpTip)}` : ""}</dt><dd><span class="has-tip" tabindex="0" ${tipAttr(...tips)}>${val}</span></dd></div>`;
   const so = res.schoolsOver, ro = res.routesOver;
   const short = (n) => n.replace("등학교", "").replace("학교", "");
   const n0 = (v) => Math.round(v).toLocaleString();
@@ -252,12 +255,11 @@ function renderOverview(res, base) {
   $("#readout").innerHTML =
     `<span class="lead-line"><b>${state.year}년</b>까지 <b>${res.hh.toLocaleString()}세대</b>가 입주합니다.</span>` +
     `<dl class="over">` +
-    row("정원을 넘는 배정 학교", so.length ? `${so.length}곳` : "없음", schoolTips) +
+    row("정원을 넘는 배정 학교", so.length ? `${so.length}곳` : "없음", schoolTips, ["학교 정원은 학급 수 × 학급당 25·29명으로 가정했습니다.", "정원 가정에 따라 초과 여부가 달라집니다."]) +
     row("이용률 100%를 넘는 버스 노선", ro.length ? `${ro.length}개` : "없음", routeTips) +
     row("공원 유치거리 밖 단지", `${res.parkOut}곳 / ${res.active}곳`, parkTips) + `</dl>` +
-    `<span class="total-line">종합 부족도 <b>${res.summary.total.toFixed(0)}점</b> <span class="grade-tag ${GRADE[res.grade.level].cls}" tabindex="0" ${tipAttr(...GRADE_TIP.split(" / "))}>${res.grade.level}</span>${delta}</span>` +
-    `<span class="grade-why">${gradeWhy(res.grade)}</span>` +
-    (so.length ? `<span class="note">학교 정원은 학급 수 × 학급당 25·29명으로 가정했습니다.</span>` : "");
+    `<span class="total-line">종합 부족도 <b>${res.summary.total.toFixed(0)}점</b> <span class="grade-tag ${GRADE[res.grade.level].cls}" tabindex="0" ${tipAttr(gradeWhy(res.grade), ...GRADE_TIP.split(" / "))}>${res.grade.level}</span>${delta}</span>` +
+    "";
 }
 const pickYear = (y) => { state.year = y; $("#year").value = y; refresh(); };
 $("#timeline").addEventListener("click", (e) => { const b = e.target.closest("[data-year]"); if (b) pickYear(+b.dataset.year); });
@@ -309,7 +311,7 @@ $("#tools").addEventListener("click", (e) => {
   if (state.tool === "seokyo21") { state.year = TOOLS.seokyo21.open; $("#year").value = state.year; }  // 개교 연도로 이동해 효과를 바로 확인
   document.querySelectorAll("#tools button").forEach((x) => x.classList.toggle("on", x.dataset.tool === state.tool));
   map.getContainer().classList.toggle("adding", !!state.tool);
-  $("#toolHint").innerHTML = state.tool ? lines("지도를 클릭해 위치를 정하세요.", "같은 버튼을 다시 누르면 취소됩니다.") : lines("버튼을 고르고 지도를 클릭하면 시설이 생깁니다.", "시설은 선택한 연도부터 열립니다.");
+  $("#toolHint").innerHTML = state.tool ? lines("지도를 클릭해 위치를 정하세요.", "같은 버튼을 다시 누르면 취소됩니다.") : "";
   refresh();
 });
 map.on("click", (e) => {
@@ -421,7 +423,7 @@ const CONTROLS = [
   { p: "busPaxPerTrip", label: "회당 수용 승객(명)", min: 25, max: 70, step: 5, d: 0 },
   { p: "busBackground", label: "기존 이용객 선점 비율", min: 0, max: 0.6, step: 0.05, d: 2 },
   { p: "busCatch", label: "버스 도보권 반경(m)", min: 300, max: 1000, step: 100, d: 0 },
-  { grp: "종합 가중치(정책 우선순위에 따라 정하는 값)", p: "weights.school", label: "학교", min: 0, max: 1, step: 0.05, d: 2 },
+  { grp: "종합 가중치", grpHelp: ["정책 우선순위에 따라 정하는 값입니다.", "세 값의 합은 자동으로 맞춥니다."], p: "weights.school", label: "학교", min: 0, max: 1, step: 0.05, d: 2 },
   { p: "weights.bus", label: "버스", min: 0, max: 1, step: 0.05, d: 2 },
   { p: "weights.park", label: "공원", min: 0, max: 1, step: 0.05, d: 2 },
 ];
@@ -431,7 +433,7 @@ function renderParams() {
   for (const c of CONTROLS) {
     const v = getP(PARAMS, c.p), dflt = getP(DEFAULTS, c.p), ch = Math.abs(v - dflt) > 1e-9;
     if (ch) changed++;
-    if (c.grp) html += `<div class="param-grp">${c.grp}</div>`;
+    if (c.grp) html += `<div class="param-grp">${c.grp}${c.grpHelp ? ` ${help(...c.grpHelp)}` : ""}</div>`;
     html += `<div class="param-row${ch ? " changed" : ""}" data-p="${c.p}"><label>${c.label}${ch ? ` (기본 ${dflt})` : ""}</label>
       <input type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${v}" aria-label="${c.label}"><output>${(+v).toFixed(c.d)}</output></div>`;
   }
@@ -672,7 +674,7 @@ $("#aiReportBtn").addEventListener("click", async () => {
     const r = await aiCall("/api/report", { year: state.year, facts });
     const byId = new Map(facts.map((f) => [f.id, f.text]));
     box.innerHTML = `<ol class="ai-lines">${r.sentences.map((s) => `<li><span>${esc(s.text)}</span><span class="ai-refs">${s.facts.map((id) => `<abbr title="${esc(byId.get(id) || "")}">${esc(id)}</abbr>`).join("")}</span></li>`).join("")}</ol>` +
-      `<p class="ai-note"><span>Claude Haiku 5.5가 아래 근거의 숫자만 써서 만든 문장입니다.</span>${r.dropped.length ? `<span>근거에 없는 숫자를 쓴 문장 ${r.dropped.length}개는 걸러 냈습니다.</span>` : ""}</p>` +
+      (r.dropped.length ? `<p class="ai-note">근거에 없는 숫자를 쓴 문장 ${r.dropped.length}개는 걸러 냈습니다.</p>` : "") +
       `<details class="ai-facts"><summary>근거 보기</summary><ol>${facts.map((f) => `<li><b>${f.id}</b> ${esc(f.text)}</li>`).join("")}</ol></details>`;
   } catch (e) { box.innerHTML = `<p class="ai-status err">${esc(e.message)}</p>`; }
   btn.disabled = false;
