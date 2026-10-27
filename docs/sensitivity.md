@@ -29,4 +29,4 @@
 ## 한계
 - 기존 이용객 분포는 실측이 없어 균등난수로 가정(실제로는 간선 노선에 몰릴 수 있음)
 - 방향별 혼잡, 환승, 철도 분담 미반영
-- 재현: `js/model.js`의 `PARAMS.busBgFn`(노선별 선점 함수)과 `PARAMS.busCatch`(반경)를 바꿔 브라우저 콘솔에서 `__twin.run(2027,false)` 반복
+- 재현(당시 방식): 노선별 선점 비율 함수와 `PARAMS.busCatch`(반경)를 바꿔 브라우저 콘솔에서 `__twin.run(2027,false)` 반복. 2026-10-27 저녁부터 기존 이용객은 실측 승차(`PARAMS.busBg`) × 최대 재차 비율(`PARAMS.busMaxLoad`)로 바뀌었다(`docs/ai.md`).

@@ -1,5 +1,5 @@
 import { CENTER as SAMPLE_CENTER, YEARS, COMPLEXES as SAMPLE_COMPLEXES, FACILITIES as SAMPLE_FAC } from "./data.js";
-import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=tip4";
+import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=fix1";
 
 // 실제 시설(OSM 기반, scripts/build_data.py 산출). 없으면 샘플 사용.
 let FACILITIES = SAMPLE_FAC, facSource = "샘플";
@@ -19,7 +19,7 @@ try {
     const ok = rows.filter((x) => x.lat && x.lng && /^\d{4}-\d{2}$/.test(x.movein));
     cxSkipped = rows.filter((x) => !ok.includes(x)).map((x) => x.name);
     if (ok.length) {
-      COMPLEXES = ok.map((x) => ({ id: x.id, name: x.name, lat: +x.lat, lng: +x.lng, phases: [[+x.movein.slice(0, 4), +x.units]] }));
+      COMPLEXES = ok.map((x) => ({ id: x.id, name: x.name, lat: +x.lat, lng: +x.lng, phases: [[+x.movein.slice(0, 4), +x.units, x.movein]] }));
       CENTER = [COMPLEXES.reduce((a, c) => a + c.lat, 0) / COMPLEXES.length, COMPLEXES.reduce((a, c) => a + c.lng, 0) / COMPLEXES.length];
       cxSource = `실제 ${ok.length}개`;
     }
@@ -41,6 +41,13 @@ try {
   }
 } catch (e) { /* 최근접 배정 유지 */ }
 
+// 기존 버스 이용객(노선별 첨두 승차, scripts/estimate_bus_background.py 산출). 없으면 기존 이용객 0으로 계산
+let busBgSource = "";
+try {
+  const r = await fetch("data/bus_background.json", { cache: "no-store" });
+  if (r.ok) { const j = await r.json(); PARAMS.busBg = j.routes; PARAMS.busBaseYM = j.meta.base_month; busBgSource = `${j.meta.months[0]}~${j.meta.base_month}`; }
+} catch (e) { /* 기존 이용객 미반영 */ }
+
 const DEFAULTS = JSON.parse(JSON.stringify(PARAMS));   // 가정값 패널로 바꾸기 전의 기본 가정(기준선 계산과 "기본으로" 복원에 사용)
 
 const $ = (s) => document.querySelector(s);
@@ -59,7 +66,8 @@ const state = { year: 2026, layer: "total", tool: null, added: [], plan: {}, new
 function effComplexesOf(plan, newCx) {
   const base = COMPLEXES.map((c) => {
     const o = plan[c.id];
-    return o ? { ...c, phases: o.units > 0 ? [[o.year, o.units]] : [] } : c;
+    // 입주 연도를 그대로 두면 실제 입주 연월을 유지, 바꾸면 그해 12월 입주로 본다(model.js phaseYM)
+    return o ? { ...c, phases: o.units > 0 ? [[o.year, o.units, o.year === c.phases[0]?.[0] ? c.phases[0][2] : undefined]] : [] } : c;
   });
   const added = newCx.map((n) => ({ id: n.id, name: n.name, lat: n.lat, lng: n.lng, phases: n.units > 0 ? [[n.year, n.units]] : [] }));
   return [...base, ...added];
@@ -115,12 +123,11 @@ function popup(x) {
   // 분야(학교·버스·공원)마다 머리줄(이름 + 점수)을 두고, 세부 항목은 모두 같은 들여쓰기·같은 열에서 시작
   const school = (k) => {
     const s = x.school[k];
-    if (s.unassigned) return "통학구역 미확정";
-    return s.f ? `${s.f.name}<small>${Math.round(s.d)}m · 정원 ${s.over ? "+" + (s.over * 100).toFixed(0) + "% 초과" : "여유"}</small>` : "없음";
+    return s.f ? `${s.f.name}${s.temp ? " (임시 배정)" : ""}<small>${Math.round(s.d)}m · 정원 ${s.over ? "+" + (s.over * 100).toFixed(0) + "% 초과" : "여유"}</small>` : "없음";
   };
   const head = (label, v, cls = "") => `<tr class="grp${cls}"><th colspan="2">${label}</th><td class="sc"><i style="background:${color(v)}"></i>${v.toFixed(0)}점</td></tr>`;
   const item = (label, val) => `<tr class="item"><td>${label}</td><td colspan="2">${val}</td></tr>`;
-  const routes = x.bus.nRoutes ? `${x.bus.nRoutes}개<small>첨두 이용률 ${(x.bus.util * 100).toFixed(0)}% (가정 기반)</small>` : "없음";
+  const routes = x.bus.nRoutes ? `${x.bus.nRoutes}개<small>첨두 이용률 ${(x.bus.util * 100).toFixed(0)}% (기존 이용객 포함)</small>` : "없음";
   return `<div class="pop"><div class="pop-head"><b>${x.c.name}</b><span>${x.hh.toLocaleString()}세대 입주</span></div><table>
     ${head("종합 부족도", x.total, " total")}
     ${head("학교", x.schoolScore)}
@@ -265,10 +272,10 @@ function renderOverview(res, base) {
   const short = (n) => n.replace("등학교", "").replace("학교", "");
   const n0 = (v) => Math.round(v).toLocaleString();
   const sTop = res.schoolsUsedList[0], rTop = res.routesUsedList[0];
-  const schoolTips = so.length ? [`# 정원을 넘는 배정 학교 ${so.length}곳`, ...so.map((x) => `${short(x.name)}\t${pct(x.util)}\t학생 ${n0(x.load)} / 정원 ${n0(x.cap)}명`)]
+  const schoolTips = so.length ? [`# 정원을 넘는 배정 학교 ${so.length}곳`, ...so.map((x) => `${short(x.name)}${x.temp ? " (임시 배정)" : ""}\t${pct(x.util)}\t학생 ${n0(x.load)} / 정원 ${n0(x.cap)}명`)]
     : sTop ? ["# 모든 배정 학교가 정원 안입니다.", `가장 붐비는 곳\t${short(sTop.name)} ${pct(sTop.util)}\t학생 ${n0(sTop.load)} / 정원 ${n0(sTop.cap)}명`] : ["# 배정 학교가 없습니다."];
-  const routeTips = ro.length ? [`# 이용률 100%를 넘는 노선 ${ro.length}개`, ...ro.map((x) => `${x.name}번\t${pct(x.util)}\t수요 ${n0(x.load)} / 수송력 ${n0(x.cap)}명`), "~ 출퇴근 1시간 기준입니다."]
-    : rTop ? ["# 모든 노선이 수송력 안입니다.", `가장 붐비는 노선\t${rTop.name}번 ${pct(rTop.util)}\t수요 ${n0(rTop.load)} / 수송력 ${n0(rTop.cap)}명`, "~ 출퇴근 1시간 기준입니다."] : ["# 도보권 노선이 없습니다."];
+  const routeTips = ro.length ? [`# 이용률 100%를 넘는 노선 ${ro.length}개`, ...ro.map((x) => `${x.name}번\t${pct(x.util)}\t수요 ${n0(x.load)} / 수송력 ${n0(x.cap)}명`), "~ 출퇴근 1시간, 기존 이용객 포함입니다."]
+    : rTop ? ["# 모든 노선이 수송력 안입니다.", `가장 붐비는 노선\t${rTop.name}번 ${pct(rTop.util)}\t수요 ${n0(rTop.load)} / 수송력 ${n0(rTop.cap)}명`, "~ 출퇴근 1시간, 기존 이용객 포함입니다."] : ["# 도보권 노선이 없습니다."];
   const parkOutItems = res.items.filter((x) => x.hh > 0 && x.parkTier.some((tr) => tr.short > PARAMS.parkTolerance));
   // 한 단지가 여러 기준을 벗어나면 기준마다 한 줄(한 줄이 길어져 꺾이지 않게)
   // 표: 단지 | 가장 가까운 공원까지 거리 | 공원 종류·기준. 같은 단지가 이어지면 이름은 첫 줄에만
@@ -281,7 +288,7 @@ function renderOverview(res, base) {
     `<span class="lead-line"><b>${state.year}년</b>까지 <b>${res.hh.toLocaleString()}세대</b>가 입주합니다.</span>` +
     `<dl class="over">` +
     row("정원을 넘는 배정 학교", so.length ? `${so.length}곳` : "없음", schoolTips, ["학교 정원은 학급 수 × 학급당 25·29명으로 가정했습니다.", "정원 가정에 따라 초과 여부가 달라집니다."]) +
-    row("이용률 100%를 넘는 버스 노선", ro.length ? `${ro.length}개` : "없음", routeTips) +
+    row("이용률 100%를 넘는 버스 노선", ro.length ? `${ro.length}개` : "없음", routeTips, [`기존 이용객은 실제 정류소 승차(${busBgSource})로 추정했습니다.`, `노선 순서 자료가 없어 최대 재차 비율(기본 ${DEFAULTS.busMaxLoad})은 가정입니다.`, "이 비율에 따라 넘는 노선 수가 크게 달라집니다."]) +
     row("공원 유치거리 밖 단지", `${res.parkOut}곳 / ${res.active}곳`, parkTips) + `</dl>` +
     `<span class="total-line">종합 부족도 <b>${res.summary.total.toFixed(0)}점</b> <span class="grade-tag ${GRADE[res.grade.level].cls}" tabindex="0" ${tipAttr(`# [[${res.grade.level}]] 단계`, gradeWhy(res.grade), "---", ...GRADE_TIP)}>${res.grade.level}</span>${delta}</span>` +
     "";
@@ -446,7 +453,7 @@ const CONTROLS = [
   { grp: "학교", p: "schoolCapScale", label: "학교 정원 배율", min: 0.8, max: 1.3, step: 0.05, d: 2 },
   { grp: "버스", p: "busPeakPaxPerHH", label: "세대당 첨두 버스 이용객", min: 0.01, max: 0.5, step: 0.001, d: 3 },
   { p: "busPaxPerTrip", label: "회당 수용 승객(명)", min: 25, max: 70, step: 5, d: 0 },
-  { p: "busBackground", label: "기존 이용객 선점 비율", min: 0, max: 0.6, step: 0.05, d: 2 },
+  { p: "busMaxLoad", label: "기존 이용객 최대 재차 비율", min: 0.2, max: 0.8, step: 0.05, d: 2 },
   { p: "busCatch", label: "버스 도보권 반경(m)", min: 300, max: 1000, step: 100, d: 0 },
   { grp: "종합 가중치", grpHelp: ["정책 우선순위에 따라 정하는 값입니다.", "세 값의 합은 자동으로 맞춥니다."], p: "weights.school", label: "학교", min: 0, max: 1, step: 0.05, d: 2 },
   { p: "weights.bus", label: "버스", min: 0, max: 1, step: 0.05, d: 2 },
@@ -575,7 +582,7 @@ function meanAccess(res, key) {
   for (const x of res.items) {
     if (x.hh <= 0) continue;
     let d, wt;
-    if (lv) { const sc = x.school[lv]; if (!sc || !sc.f || sc.unassigned) continue; d = sc.d; wt = sc.kids; }
+    if (lv) { const sc = x.school[lv]; if (!sc || !sc.f) continue; d = sc.d; wt = sc.kids; }
     else if (key === "bus") { if (!x.bus.f) continue; d = x.bus.d; wt = x.hh; }
     else { const t = x.parkTier[0]; if (!isFinite(t.d)) continue; d = t.d; wt = x.hh; }
     sum += d * wt; w += wt;
@@ -682,10 +689,12 @@ function aiFacts() {
   add(`${state.year}년까지 입주 세대 ${res.hh.toLocaleString()}세대, 입주 단지 ${res.active}곳`);
   add(`종합 부족도 ${Math.round(res.summary.total)}점(가정 기반 상대 비교), 학교 ${Math.round(res.summary.school)}점, 버스 ${Math.round(res.summary.bus)}점, 공원 ${Math.round(res.summary.park)}점`);
   add(`단계 ${res.grade.level}: 가장 붐비는 ${res.grade.name}의 이용률 ${Math.round(res.grade.util * 100)}%(100% 초과면 부족, 90% 이상이면 주의)`);
-  if (res.schoolsOver.length) for (const s of res.schoolsOver.slice(0, 4)) add(`배정 학교 ${s.name}의 정원 대비 부하 ${Math.round(s.util * 100)}%`);
+  if (res.schoolsOver.length) for (const s of res.schoolsOver.slice(0, 4)) add(`배정 학교 ${s.name}의 정원 대비 부하 ${Math.round(s.util * 100)}%${s.temp ? "(통학구역 미확정 단지를 가장 가까운 학교로 임시 배정한 결과)" : ""}`);
   else add("정원을 넘는 배정 학교 없음");
   const ro = res.routesOver;
-  add(ro.length ? `이용률 100%를 넘는 버스 노선 ${ro.length}개, 가장 높은 노선은 ${ro[0].name}번 ${Math.round(ro[0].util * 100)}%` : "이용률 100%를 넘는 버스 노선 없음");
+  const rTop = res.routesUsedList[0];
+  add((ro.length ? `이용률 100%를 넘는 버스 노선 ${ro.length}개, 가장 높은 노선은 ${ro[0].name}번 ${Math.round(ro[0].util * 100)}%` : `이용률 100%를 넘는 버스 노선 없음${rTop ? `, 가장 높은 노선은 ${rTop.name}번 ${Math.round(rTop.util * 100)}%` : ""}`) +
+    "(기존 이용객 포함, 최대 재차 비율은 가정)");
   add(`공원 유치거리 밖 단지 ${res.parkOut}곳(전체 ${res.active}곳 중)`);
   buildReport(res).prio.forEach((p, i) => add(`우선 점검 ${i + 1}순위 ${p.name}(${Math.round(p.score)}점): ${p.causes.join(", ")}`));
   const d = res.summary.total - base.summary.total;
@@ -796,5 +805,5 @@ refresh();
 if (URLP.get("focus") === "schools") requestAnimationFrame(() => $("#schoolsBox").scrollIntoView({ block: "center" }));   // 캡처용: 학교 이용률 패널로 스크롤
 // 디버그/검증용
 window.__twin = { state, run, PARAMS, map };
-$("#dataBadge").textContent = `단지: ${cxSource} · 시설: ${facSource} · 학교 배정: ${zoneSource}`;
+$("#dataBadge").textContent = `단지: ${cxSource} · 시설: ${facSource} · 학교 배정: ${zoneSource}${busBgSource ? ` · 버스 기존 이용객: ${busBgSource} 승차` : ""}`;
 if (cxSkipped.length) console.warn("좌표/입주월 누락으로 제외된 단지:", cxSkipped.join(", "));

@@ -3,7 +3,9 @@
 
 export const PARAMS = {
   schoolCapScale: 1, // 학교 정원 배율(가정 패널에서 조정). 정원 = 학급수 x 학급당 정원 x 배율
-  baseYear: 2026, // 학급 데이터(NEIS AY2026) 기준연도. 이 이전 입주분은 이미 학교 현원에 반영됨
+  // 학교 현원(학교알리미 2026 공시, 4월 1일 기준)에 이미 들어 있는 입주의 마지막 달. 이 달까지 입주한 세대는 새 학생 수요로 더하지 않는다.
+  // 예전에는 연도만 봐서 2026년 4~10월 입주 단지(파라곤·라프리미어·금강펜테리움 2,828세대)의 학생이 현원에도 신규 수요에도 빠졌음
+  schoolBaseYM: "2026-03",
   persons: 2.8, // 세대당 가구원
   kids: { elem: 0.17, mid: 0.07, high: 0.07 }, // 세대당 학령인구
   walkLimit: { elem: 1000, mid: 1500, high: 2000, bus: 400, park: 800 }, // m
@@ -11,7 +13,11 @@ export const PARAMS = {
   // 세대당 하루 승차 0.216회 × 첨두 1시간 비중 15%(가정) = 0.032. 예전 근거 없는 가정 0.3은 약 10배 과대였음(docs/ai.md)
   busPeakPaxPerHH: 0.032,
   busPaxPerTrip: 45, // 회당 수용 승객(가정, 민감도 30~60의 중간값; build_data.py의 BUS_PAX_PER_TRIP과 동일 유지)
-  busBackground: 0, // 기존 이용객(단지 밖 주민)이 이미 쓰는 노선 수송력 비율(가정). 기본 0 = 미반영, 민감도 분석에서 0~0.4로 변화
+  // 기존 이용객: 노선별 양방향 첨두 1시간 승차(실제 정류소 승차를 노선에 배차 비율로 나눈 값, scripts/estimate_bus_background.py → data/bus_background.json).
+  // 앱이 불러와 채운다. 노선 부하 = 이 값 × 최대 재차 비율(가정: 가장 붐비는 구간에서 한 방향 버스에 동시에 탄 사람 ÷ 양방향 승차)
+  busBg: {},
+  busMaxLoad: 0.5,
+  busBaseYM: "2026-08", // 기존 이용객 데이터의 마지막 달. 이 달까지 입주한 단지 주민은 기존 이용객에 들어 있어 새 수요로 더하지 않음
   busCatch: 600, // 수요를 배분하는 정류장 도보권 반경(m)
   // 공원 접근성: 단계별 최소 규모·유치거리(m). 도시공원법 시행규칙의 유치거리 기준을 따른 값(재확인 필요).
   // 1인당 면적은 기존 주민 인구를 몰라 분모가 왜곡되므로 쓰지 않음(신규 입주 인구로만 나누면 큰 공원이 있을 때 과소 평가)
@@ -41,9 +47,13 @@ export function dist(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+// 입주 단계 = [연도, 세대수, 입주 연월("YYYY-MM")]. 연월이 없으면(편집·추가한 단지) 그해 12월로 본다
+const phaseYM = (p) => p[2] || `${p[0]}-12`;
 function households(c, year) {
   return c.phases.reduce((s, [y, n]) => (y <= year ? s + n : s), 0);
 }
+// 기준 연월까지 입주한 세대(데이터에 이미 반영된 세대)
+const householdsBy = (c, ym) => c.phases.reduce((s, p) => (phaseYM(p) <= ym ? s + p[1] : s), 0);
 
 function nearest(c, list) {
   let best = null, bd = Infinity;
@@ -74,14 +84,18 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
     const addedList = list.filter((f) => f.added);
     for (const x of active) {
       const kids = x.hh * P.kids[lv];
-      const kidsNew = Math.max(0, x.hh - households(x.c, P.baseYear)) * P.kids[lv];
+      const kidsNew = Math.max(0, x.hh - householdsBy(x.c, P.schoolBaseYM)) * P.kids[lv];
       const zoned = ((x.c.zone && x.c.zone[lv]) || []).map((n) => byName.get(n)).filter((f) => f && f.level === lv);
-      let cands;
+      let cands, temp = false;
       if (zoned.length) {
         const nz = nearest(x.c, zoned), na = nearest(x.c, addedList);
         cands = na.f && na.d < nz.d ? [na.f] : zoned;
       } else if (x.c.zone && lv === "elem") {
-        cands = [];                       // 학구 자료가 있는데 해당 통학구역이 없음 = 미확정(신규 단지). 최근접으로 우기지 않음
+        // 학구 자료가 있는데 통학구역이 없음 = 미확정(신규 단지). 학생을 빼면 부하가 줄고 점수가 0점이 되어 낙관 쪽으로 기우므로
+        // 가장 가까운 학교에 임시 배정하고 화면에 '임시'로 표시한다
+        const n = nearest(x.c, list);
+        cands = n.f ? [n.f] : [];
+        temp = true;
       } else {
         const n = nearest(x.c, list);
         cands = n.f ? [n.f] : [];
@@ -89,7 +103,7 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
       const capSum = cands.reduce((s2, f) => s2 + f.cap, 0) || 1;
       const ws = cands.map((f) => ({ f, w: f.cap / capSum }));
       const prim = nearest(x.c, cands);
-      x.school[lv] = { kids, f: prim.f, d: ws.reduce((s2, c) => s2 + c.w * dist(x.c, c.f), 0), cands: ws, zoned: zoned.length > 0, unassigned: !cands.length && !!x.c.zone && lv === "elem" };
+      x.school[lv] = { kids, f: prim.f, d: ws.reduce((s2, c) => s2 + c.w * dist(x.c, c.f), 0), cands: ws, zoned: zoned.length > 0, temp };
       for (const { f, w } of ws) schoolLoad[f.id] += kidsNew * w;
     }
   }
@@ -98,8 +112,7 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
     for (const lv of ["elem", "mid", "high"]) {
       const s = x.school[lv];
       let sc;
-      if (s.unassigned) sc = 0;           // 통학구역 미확정: 점수에서 제외(0점)
-      else if (!s.f) sc = 100;
+      if (!s.f) sc = 100;
       else {
         const over = s.cands.reduce((s2, c) => s2 + c.w * clamp(schoolLoad[c.f.id] / (c.f.cap * P.schoolCapScale) - 1), 0);
         const util = s.cands.reduce((s2, c) => s2 + c.w * schoolLoad[c.f.id] / (c.f.cap * P.schoolCapScale), 0);
@@ -119,7 +132,7 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
   const routeCap = {};
   for (const f of stops) for (const r of routesOf(f)) if (r.peek > 0) routeCap[r.id] = (60 / r.peek) * P.busPaxPerTrip;
   const routeLoad = {};
-  for (const id of Object.keys(routeCap)) routeLoad[id] = routeCap[id] * (P.busBgFn ? P.busBgFn(id) : P.busBackground);   // 기존 이용객 선점분
+  for (const id of Object.keys(routeCap)) routeLoad[id] = ((P.busBg[id] && P.busBg[id].peak) || 0) * P.busMaxLoad;   // 기존 이용객(실측 승차 기반)
   for (const x of active) {
     x.bus = nearest(x.c, stops);
     let near = stops.filter((f) => dist(x.c, f) <= P.busCatch);
@@ -128,7 +141,7 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
     for (const f of near) for (const r of routesOf(f)) if (r.peek > 0) ids.add(r.id);
     x.busRoutes = [...ids];
     const capSum = x.busRoutes.reduce((s2, id) => s2 + routeCap[id], 0) || 1;
-    x.busDemand = x.hh * P.busPeakPaxPerHH;
+    x.busDemand = Math.max(0, x.hh - householdsBy(x.c, P.busBaseYM)) * P.busPeakPaxPerHH;   // 기존 이용객 데이터 뒤에 입주하는 세대만
     for (const id of x.busRoutes) routeLoad[id] = (routeLoad[id] || 0) + (x.busDemand * routeCap[id]) / capSum;
   }
   for (const x of active) {
@@ -157,10 +170,10 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
     x.total = (ws.school * x.schoolScore + ws.bus * x.busScore + ws.park * x.parkScore) / wsum;
   }
   // 물리 단위 요약(화면 첫 요약용): 입주 단지가 실제로 쓰는 학교·노선만 센다
-  const usedSchools = new Map();
-  for (const x of active) for (const lv of ["elem", "mid", "high"]) for (const { f } of x.school[lv].cands || []) usedSchools.set(f.id, f);
+  const usedSchools = new Map(), firmSchools = new Set();   // firm = 실제 학구로 배정된 적이 있는 학교(아니면 임시 배정만 받은 학교)
+  for (const x of active) for (const lv of ["elem", "mid", "high"]) for (const { f } of x.school[lv].cands || []) { usedSchools.set(f.id, f); if (!x.school[lv].temp) firmSchools.add(f.id); }
   // 툴팁에서 쓰도록 부하·정원도 함께 둔다(가장 붐비는 순)
-  const schoolsUsedList = [...usedSchools.values()].map((f) => ({ name: f.name, load: schoolLoad[f.id], cap: f.cap * P.schoolCapScale, util: schoolLoad[f.id] / (f.cap * P.schoolCapScale) }))
+  const schoolsUsedList = [...usedSchools.values()].map((f) => ({ name: f.name, temp: !firmSchools.has(f.id), load: schoolLoad[f.id], cap: f.cap * P.schoolCapScale, util: schoolLoad[f.id] / (f.cap * P.schoolCapScale) }))
     .sort((a, b) => b.util - a.util);
   const schoolsOver = schoolsUsedList.filter((s) => s.util > 1);
   const routeName = {};
@@ -192,7 +205,7 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
     schoolsOver, schoolsUsed: usedSchools.size, schoolsUsedList, routesOver, routesUsed: usedRoutes.size, routesUsedList, parkOut, active: active.length, grade,
     risky: active.filter((x) => ["elem", "mid", "high"].some((lv) => (x.school[lv] && x.school[lv].over) > 0.0005) || x.bus.util > 1).length,
     schools: open.filter((f) => f.type === "school")
-      .map((f) => ({ id: f.id, name: f.name, level: f.level, load: schoolLoad[f.id] || 0, cap: f.cap, util: (schoolLoad[f.id] || 0) / f.cap })),
+      .map((f) => ({ id: f.id, name: f.name, level: f.level, load: schoolLoad[f.id] || 0, cap: f.cap, util: (schoolLoad[f.id] || 0) / (f.cap * P.schoolCapScale) })),   // 요약과 같은 정원(배율 반영)
   };
 }
 
