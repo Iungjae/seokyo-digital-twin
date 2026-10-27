@@ -7,7 +7,9 @@ export const PARAMS = {
   persons: 2.8, // 세대당 가구원
   kids: { elem: 0.17, mid: 0.07, high: 0.07 }, // 세대당 학령인구
   walkLimit: { elem: 1000, mid: 1500, high: 2000, bus: 400, park: 800 }, // m
-  busPeakPaxPerHH: 0.3, // 세대당 첨두시 버스 이용객(가정, 민감도 0.15~0.6의 중간값; 절대 점수는 이 값에 크게 좌우, 상위 취약 단지 순위는 안정적)
+  // 세대당 첨두시 버스 이용객. 경기도 정류소별 승하차(2023-01~2026-08)로 추정한 값(scripts/fit_bus_rate.py → data/bus_rate.json):
+  // 세대당 하루 승차 0.216회 × 첨두 1시간 비중 15%(가정) = 0.032. 예전 근거 없는 가정 0.3은 약 10배 과대였음(docs/ai.md)
+  busPeakPaxPerHH: 0.032,
   busPaxPerTrip: 45, // 회당 수용 승객(가정, 민감도 30~60의 중간값; build_data.py의 BUS_PAX_PER_TRIP과 동일 유지)
   busBackground: 0, // 기존 이용객(단지 밖 주민)이 이미 쓰는 노선 수송력 비율(가정). 기본 0 = 미반영, 민감도 분석에서 0~0.4로 변화
   busCatch: 600, // 수요를 배분하는 정류장 도보권 반경(m)

@@ -1,5 +1,5 @@
 import { CENTER as SAMPLE_CENTER, YEARS, COMPLEXES as SAMPLE_COMPLEXES, FACILITIES as SAMPLE_FAC } from "./data.js";
-import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=scale2";
+import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=bus1";
 
 // 실제 시설(OSM 기반, scripts/build_data.py 산출). 없으면 샘플 사용.
 let FACILITIES = SAMPLE_FAC, facSource = "샘플";
@@ -369,7 +369,7 @@ const CONTROLS = [
   { p: "kids.mid", label: "중등 학령인구 / 세대", min: 0.02, max: 0.15, step: 0.01, d: 2 },
   { p: "kids.high", label: "고등 학령인구 / 세대", min: 0.02, max: 0.15, step: 0.01, d: 2 },
   { grp: "학교", p: "schoolCapScale", label: "학교 정원 배율", min: 0.8, max: 1.3, step: 0.05, d: 2 },
-  { grp: "버스", p: "busPeakPaxPerHH", label: "세대당 첨두 버스 이용객", min: 0.05, max: 0.8, step: 0.01, d: 2 },
+  { grp: "버스", p: "busPeakPaxPerHH", label: "세대당 첨두 버스 이용객", min: 0.01, max: 0.5, step: 0.001, d: 3 },
   { p: "busPaxPerTrip", label: "회당 수용 승객(명)", min: 25, max: 70, step: 5, d: 0 },
   { p: "busBackground", label: "기존 이용객 선점 비율", min: 0, max: 0.6, step: 0.05, d: 2 },
   { p: "busCatch", label: "버스 도보권 반경(m)", min: 300, max: 1000, step: 100, d: 0 },
@@ -381,9 +381,9 @@ const CONTROLS = [
 let BUS_FIT = null;   // data/bus_rate.json(있을 때만)
 fetch("data/bus_rate.json").then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.peak_per_hh != null) { BUS_FIT = j; renderParams(); } }).catch(() => {});
 $("#paramList").addEventListener("click", (e) => {
-  if (e.target.id !== "useBusFit" || !BUS_FIT) return;
+  if (!BUS_FIT || !["useBusFit", "useOldBus"].includes(e.target.id)) return;
   const c = CONTROLS.find((x) => x.p === "busPeakPaxPerHH");
-  setP(PARAMS, c.p, Math.min(c.max, Math.max(c.min, BUS_FIT.peak_per_hh)));
+  setP(PARAMS, c.p, e.target.id === "useOldBus" ? 0.3 : Math.min(c.max, Math.max(c.min, BUS_FIT.peak_per_hh)));
   renderParams(); refresh();
 });
 function renderParams() {
@@ -395,7 +395,9 @@ function renderParams() {
     html += `<div class="param-row${ch ? " changed" : ""}" data-p="${c.p}"><label>${c.label}${ch ? ` (기본 ${dflt})` : ""}</label>
       <input type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${v}" aria-label="${c.label}"><output>${(+v).toFixed(c.d)}</output></div>`;
     // 승하차 데이터로 추정한 값이 있으면 가정값 바로 아래에 함께 보여 준다(scripts/fit_bus_rate.py → data/bus_rate.json)
-    if (c.p === "busPeakPaxPerHH" && BUS_FIT) html += `<div class="param-fit"><span>데이터 추정 <b>${BUS_FIT.peak_per_hh}</b>명</span><button type="button" id="useBusFit">이 값 쓰기</button>
+    // 기본값이 이미 데이터 추정치면 "쓰는 중"으로, 예전 가정(0.3)과 비교할 수 있는 버튼을 둔다
+    const usingFit = BUS_FIT && Math.abs(v - BUS_FIT.peak_per_hh) < 1e-9;
+    if (c.p === "busPeakPaxPerHH" && BUS_FIT) html += `<div class="param-fit"><span>데이터 추정 <b>${BUS_FIT.peak_per_hh}</b>명${usingFit ? " · 지금 쓰는 값" : ""}</span>${usingFit ? `<button type="button" id="useOldBus">예전 가정 0.3과 비교</button>` : `<button type="button" id="useBusFit">이 값 쓰기</button>`}
       <p><span>세대당 하루 승차 ${BUS_FIT.daily_per_hh}회 × 첨두 비중 ${Math.round(BUS_FIT.peak_share_assumed * 100)}%(가정)</span><span>단지 ${BUS_FIT.complexes.length}곳의 입주 전후 승하차를 비교했습니다.</span></p></div>`;
   }
   $("#paramList").innerHTML = html;
@@ -551,7 +553,7 @@ async function recommend() {
   const sec = ((performance.now() - t0) / 1000).toFixed(1);
   const max = top[0]?.gain ?? 0;
   $("#recStatus").innerHTML = max < 0.05
-    ? lines(`후보 ${pts.length}곳을 모두 계산했습니다.`, `${year}년에는 ${REC_LABEL[key]}를 더해도 효과가 거의 없습니다.`)
+    ? lines(`후보 ${pts.length}곳을 모두 계산했습니다.`, `${year}년에는 ${REC_LABEL[key]}${eulReul(REC_LABEL[key])} 더해도 효과가 거의 없습니다.`)
     : lines(`${year}년 기준 후보 ${pts.length}곳을 ${sec}초 만에 계산했습니다.`, `추천 위치끼리는 ${REC.minSep}m 이상 떨어뜨렸습니다.`);
   renderRec();
 }
@@ -564,7 +566,7 @@ function renderRec() {
     const parts = [["학교", c.dSchool], ["버스", c.dBus], ["공원", c.dPark]].filter(([, v]) => Math.abs(v) >= 0.01).map(([k, v]) => `${k} −${v.toFixed(1)}점`);
     const dd = Math.round(c.dDist);
     return `<li><span class="rank">${i + 1}</span><div>
-      <p class="rec-head"><b>${nc.name.replace(/\(.*$/, "")} 인근</b><span class="gain">종합 −${c.gain.toFixed(1)}점</span></p>
+      <p class="rec-head"><b>${nc.name.replace(/\(.*$/, "")} 인근</b><span class="gain">${c.gain >= 0.05 ? `종합 −${c.gain.toFixed(1)}점` : "변화 거의 없음"}</span></p>
       <p class="rec-sub">가장 가까운 단지까지 ${nc.d}m</p>
       ${parts.length ? `<p class="rec-sub">${parts.join(" · ")}</p>` : ""}
       ${Math.abs(dd) >= 1 ? `<p class="rec-sub">평균 접근거리 ${Math.abs(dd)}m ${dd > 0 ? "단축" : "증가"}</p>` : ""}
