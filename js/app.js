@@ -369,7 +369,7 @@ const CONTROLS = [
   { p: "kids.mid", label: "중등 학령인구 / 세대", min: 0.02, max: 0.15, step: 0.01, d: 2 },
   { p: "kids.high", label: "고등 학령인구 / 세대", min: 0.02, max: 0.15, step: 0.01, d: 2 },
   { grp: "학교", p: "schoolCapScale", label: "학교 정원 배율", min: 0.8, max: 1.3, step: 0.05, d: 2 },
-  { grp: "버스", p: "busPeakPaxPerHH", label: "세대당 첨두 버스 이용객", min: 0.1, max: 0.8, step: 0.05, d: 2 },
+  { grp: "버스", p: "busPeakPaxPerHH", label: "세대당 첨두 버스 이용객", min: 0.05, max: 0.8, step: 0.01, d: 2 },
   { p: "busPaxPerTrip", label: "회당 수용 승객(명)", min: 25, max: 70, step: 5, d: 0 },
   { p: "busBackground", label: "기존 이용객 선점 비율", min: 0, max: 0.6, step: 0.05, d: 2 },
   { p: "busCatch", label: "버스 도보권 반경(m)", min: 300, max: 1000, step: 100, d: 0 },
@@ -378,6 +378,14 @@ const CONTROLS = [
   { p: "weights.park", label: "공원", min: 0, max: 1, step: 0.05, d: 2 },
 ];
 
+let BUS_FIT = null;   // data/bus_rate.json(있을 때만)
+fetch("data/bus_rate.json").then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.peak_per_hh != null) { BUS_FIT = j; renderParams(); } }).catch(() => {});
+$("#paramList").addEventListener("click", (e) => {
+  if (e.target.id !== "useBusFit" || !BUS_FIT) return;
+  const c = CONTROLS.find((x) => x.p === "busPeakPaxPerHH");
+  setP(PARAMS, c.p, Math.min(c.max, Math.max(c.min, BUS_FIT.peak_per_hh)));
+  renderParams(); refresh();
+});
 function renderParams() {
   let html = "", changed = 0;
   for (const c of CONTROLS) {
@@ -386,6 +394,9 @@ function renderParams() {
     if (c.grp) html += `<div class="param-grp">${c.grp}</div>`;
     html += `<div class="param-row${ch ? " changed" : ""}" data-p="${c.p}"><label>${c.label}${ch ? ` (기본 ${dflt})` : ""}</label>
       <input type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${v}" aria-label="${c.label}"><output>${(+v).toFixed(c.d)}</output></div>`;
+    // 승하차 데이터로 추정한 값이 있으면 가정값 바로 아래에 함께 보여 준다(scripts/fit_bus_rate.py → data/bus_rate.json)
+    if (c.p === "busPeakPaxPerHH" && BUS_FIT) html += `<div class="param-fit"><span>데이터 추정 <b>${BUS_FIT.peak_per_hh}</b>명</span><button type="button" id="useBusFit">이 값 쓰기</button>
+      <p><span>세대당 하루 승차 ${BUS_FIT.daily_per_hh}회 × 첨두 비중 ${Math.round(BUS_FIT.peak_share_assumed * 100)}%(가정)</span><span>단지 ${BUS_FIT.complexes.length}곳의 입주 전후 승하차를 비교했습니다.</span></p></div>`;
   }
   $("#paramList").innerHTML = html;
   $("#paramBadge").textContent = changed ? `${changed}개 변경` : "";
@@ -584,6 +595,102 @@ $("#recList").addEventListener("click", (e) => {
   recState = { cands: [], top: [], key: null, year: null };
   $("#recStatus").innerHTML = lines("고른 위치를 시나리오에 추가했습니다.", "다시 계산하면 그다음 후보를 찾습니다.");
   refresh(); renderRec();
+});
+
+// --- AI(Claude Haiku 5.5): 정책 리포트 문장 쓰기, 말로 시나리오 만들기 ---
+// 키는 정적 사이트에 둘 수 없어 ai-worker(Cloudflare Worker)를 거친다. 주소는 index.html의 meta[name=seokyo-ai].
+// 로컬 확인용으로만 ?ai=주소 덮어쓰기를 허용(외부 링크가 요청을 다른 서버로 보내지 못하게)
+const AI_BASE = ((["localhost", "127.0.0.1"].includes(location.hostname) && URLP.get("ai")) || document.querySelector('meta[name="seokyo-ai"]')?.content || "").replace(/\/$/, "");
+async function aiCall(path, body) {
+  if (!AI_BASE) throw new Error("AI 서버가 아직 연결되지 않았습니다.");
+  let r;
+  try { r = await fetch(AI_BASE + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); }
+  catch (e) { throw new Error("AI 서버에 연결하지 못했습니다."); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `AI 요청이 실패했습니다(${r.status}).`);
+  return j;
+}
+
+// 리포트 근거: 화면이 계산한 수치를 번호 붙은 사실로 만든다. AI는 이 사실의 숫자만 쓸 수 있다(서버가 검사)
+function aiFacts() {
+  const res = run(state.year), base = run(state.year, false), F = [];
+  const add = (text) => F.push({ id: `F${F.length + 1}`, text });
+  add(`${state.year}년까지 입주 세대 ${res.hh.toLocaleString()}세대, 입주 단지 ${res.active}곳`);
+  add(`종합 부족도 ${Math.round(res.summary.total)}점(가정 기반 상대 비교), 학교 ${Math.round(res.summary.school)}점, 버스 ${Math.round(res.summary.bus)}점, 공원 ${Math.round(res.summary.park)}점`);
+  if (res.schoolsOver.length) for (const s of res.schoolsOver.slice(0, 4)) add(`배정 학교 ${s.name}의 정원 대비 부하 ${Math.round(s.util * 100)}%`);
+  else add("정원을 넘는 배정 학교 없음");
+  const ro = res.routesOver;
+  add(ro.length ? `이용률 100%를 넘는 버스 노선 ${ro.length}개, 가장 높은 노선은 ${ro[0].name}번 ${Math.round(ro[0].util * 100)}%` : "이용률 100%를 넘는 버스 노선 없음");
+  add(`공원 유치거리 밖 단지 ${res.parkOut}곳(전체 ${res.active}곳 중)`);
+  buildReport(res).prio.forEach((p, i) => add(`우선 점검 ${i + 1}순위 ${p.name}(${Math.round(p.score)}점): ${p.causes.join(", ")}`));
+  const d = res.summary.total - base.summary.total;
+  if (Math.abs(d) > 0.05) add(`시나리오를 적용하면 종합 부족도가 현재 계획보다 ${Math.abs(d).toFixed(1)}점 ${d < 0 ? "낮음" : "높음"}`);
+  return F;
+}
+$("#aiReportBtn").addEventListener("click", async () => {
+  const box = $("#aiReport"), btn = $("#aiReportBtn"), facts = aiFacts();
+  btn.disabled = true; box.innerHTML = `<p class="ai-status">AI가 리포트를 쓰는 중입니다.</p>`;
+  try {
+    const r = await aiCall("/api/report", { year: state.year, facts });
+    const byId = new Map(facts.map((f) => [f.id, f.text]));
+    box.innerHTML = `<ol class="ai-lines">${r.sentences.map((s) => `<li><span>${esc(s.text)}</span><span class="ai-refs">${s.facts.map((id) => `<abbr title="${esc(byId.get(id) || "")}">${esc(id)}</abbr>`).join("")}</span></li>`).join("")}</ol>` +
+      `<p class="ai-note"><span>Claude Haiku 5.5가 아래 근거의 숫자만 써서 만든 문장입니다.</span>${r.dropped.length ? `<span>근거에 없는 숫자를 쓴 문장 ${r.dropped.length}개는 걸러 냈습니다.</span>` : ""}</p>` +
+      `<details class="ai-facts"><summary>근거 보기</summary><ol>${facts.map((f) => `<li><b>${f.id}</b> ${esc(f.text)}</li>`).join("")}</ol></details>`;
+  } catch (e) { box.innerHTML = `<p class="ai-status err">${esc(e.message)}</p>`; }
+  btn.disabled = false;
+});
+
+// 말로 시나리오 만들기: 질문 → (AI) 조작 목록 → 사용자가 확인하면 적용
+const FAC_LABEL = { "school-elem": "초등학교", "school-mid": "중학교", bus: "정류장", park: "공원" };
+// 받침이 있으면 "을", 없으면 "를"(한글이 아니면 "을")
+const eulReul = (w) => { const c = w.trim().slice(-1).charCodeAt(0) - 0xac00; return c >= 0 && c < 11172 && c % 28 === 0 ? "를" : "을"; };
+const cxById = (id) => COMPLEXES.find((c) => c.id === id) || state.newCx.find((c) => c.id === id);
+const describeOp = (o) => ({
+  set_year: () => `기준 연도를 ${o.year}년으로 바꿉니다.`,
+  set_units: () => `${shortName(cxById(o.complex_id).name)} 세대수를 ${o.units.toLocaleString()}세대로 바꿉니다.`,
+  set_movein: () => `${shortName(cxById(o.complex_id).name)} 입주를 ${o.year}년으로 바꿉니다.`,
+  add_facility: () => `${shortName(cxById(o.complex_id).name)} 근처에 ${FAC_LABEL[o.facility]}${eulReul(FAC_LABEL[o.facility])} 추가합니다${o.year ? `(${o.year}년 개통)` : ""}.`,
+  set_param: () => { const l = CONTROLS.find((c) => c.p === o.param)?.label ?? o.param; return `${l}${eulReul(l.replace(/\(.*\)$/, ""))} ${o.value}로 바꿉니다.`; },
+}[o.op]());
+const aiCatalog = () => ({
+  currentYear: state.year, years: YEARS, moveinYears: PLAN_YEARS,
+  complexes: COMPLEXES.map((c) => ({ id: c.id, name: c.name, units: state.plan[c.id]?.units ?? baseUnits(c), movein: state.plan[c.id]?.year ?? baseYear(c) })),
+  params: CONTROLS.map((c) => ({ key: c.p, label: c.label, min: c.min, max: c.max, value: getP(PARAMS, c.p) })),
+});
+function applyOps(ops) {
+  for (const o of ops) {
+    const c = o.complex_id ? COMPLEXES.find((x) => x.id === o.complex_id) : null;
+    if ((o.op === "set_units" || o.op === "set_movein") && c) {
+      const cur = state.plan[c.id] ?? { units: baseUnits(c), year: baseYear(c) };
+      state.plan[c.id] = o.op === "set_units" ? { ...cur, units: o.units } : { ...cur, year: o.year };
+    } else if (o.op === "add_facility" && c) {
+      const grp = (state.added.at(-1)?.grp || 0) + 1;   // 단지 바로 북쪽(약 130m)에 둔다
+      state.added.push({ ...TOOLS[o.facility], id: `U${grp}-ai`, grp, lat: c.lat + 0.0012, lng: c.lng, open: o.year ?? state.year });
+    } else if (o.op === "set_param") setP(PARAMS, o.param, o.value);
+  }
+  const y = ops.find((o) => o.op === "set_year")?.year;
+  if (y) { state.year = y; $("#year").value = y; }
+  renderParams(); renderPlan(); refresh();
+}
+let nlPending = null;
+async function nlAsk(question) {
+  const box = $("#nlResult");
+  box.innerHTML = `<p class="ai-status">AI가 질문을 해석하는 중입니다.</p>`;
+  try {
+    const r = await aiCall("/api/whatif", { question, catalog: aiCatalog() });
+    nlPending = r.ops;
+    // 바뀌는 내용은 앱이 조작 목록에서 직접 문장으로 만든다(AI 요약은 같은 말이라 보여 주지 않음)
+    box.innerHTML = (r.ops.length ? `<p class="nl-summary">이렇게 바꿉니다.</p><ul class="nl-ops">${r.ops.map((o) => `<li>${esc(describeOp(o))}</li>`).join("")}</ul>` : "") +
+      (r.unsupported ? `<p class="ai-status err">${esc(r.unsupported)}</p>` : "") +
+      (r.rejected.length ? `<p class="ai-status err">적용할 수 없는 조작 ${r.rejected.length}개를 뺐습니다: ${r.rejected.map((x) => esc(x.reason)).join(" ")}</p>` : "") +
+      (r.ops.length ? `<div class="row nl-acts"><button type="button" id="nlCancel">취소</button><button type="button" id="nlApply" class="primary">적용</button></div>` : "");
+  } catch (e) { box.innerHTML = `<p class="ai-status err">${esc(e.message)}</p>`; }
+}
+$("#nlForm").addEventListener("submit", (e) => { e.preventDefault(); const q = $("#nlInput").value.trim(); if (q.length >= 2) nlAsk(q); });
+$("#nlExamples").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; $("#nlInput").value = b.textContent; nlAsk(b.textContent); });
+$("#nlResult").addEventListener("click", (e) => {
+  if (e.target.id === "nlApply" && nlPending) { applyOps(nlPending); $("#nlResult").innerHTML = `<p class="ai-status">적용했습니다. 위쪽 요약과 지도에서 바뀐 결과를 확인하세요.</p>`; nlPending = null; }
+  if (e.target.id === "nlCancel") { nlPending = null; $("#nlResult").innerHTML = ""; }
 });
 
 // --- 주소 파라미터 적용 ---

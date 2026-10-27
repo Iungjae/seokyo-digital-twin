@@ -1,0 +1,22 @@
+// 세교 디지털트윈 AI 중계 Worker. 배포: npm run deploy (wrangler login 필요)
+// 비밀 값: npx wrangler secret put ANTHROPIC_API_KEY
+{
+  "name": "seokyo-twin-ai",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // 공개 주소는 workers.dev 하나만(버전별 미리보기 주소는 쓰지 않음)
+  "workers_dev": true,
+  "preview_urls": false,
+  "vars": {
+    // 이 주소에서 온 요청만 받는다(배포 사이트 + 로컬 확인용)
+    "ALLOWED_ORIGINS": "https://iungjae.github.io,http://localhost:8765",
+    // 하루 사용량 제한(접속 주소별 / 전체)
+    "DAILY_LIMIT_PER_IP": "30",
+    "DAILY_LIMIT_TOTAL": "500"
+  },
+  // Gate: Claude 호출을 미국 동부(enam)에 고정하고 사용량을 세는 객체(무료 플랜용 SQLite 방식)
+  "durable_objects": { "bindings": [{ "name": "GATE", "class_name": "Gate" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Gate"] }],
+  "observability": { "enabled": true }
+}

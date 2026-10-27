@@ -1,0 +1,99 @@
+{
+ "method": "입주 전후 비교 + 대조군 보정(이중차분), 원점 회귀",
+ "radius_m": 400,
+ "months": [
+  "2023-01",
+  "2026-08"
+ ],
+ "peak_share_assumed": 0.15,
+ "daily_per_hh": 0.216,
+ "peak_per_hh": 0.032,
+ "model_default": 0.3,
+ "radius_sensitivity_daily_per_hh": {
+  "400m": 0.216,
+  "600m": 0.295,
+  "800m": 0.489
+ },
+ "complexes": [
+  {
+   "id": "A1",
+   "name": "호반써밋 라센트",
+   "units": 897,
+   "movein": "2024-03",
+   "stops": 3,
+   "control_stops": 253,
+   "window": "+6~+11개월",
+   "early": false,
+   "pre": 3.4,
+   "post": 197.9,
+   "control_ratio": 1.338,
+   "expected": 4.6,
+   "delta": 193.3,
+   "per_hh_daily": 0.216
+  },
+  {
+   "id": "A3",
+   "name": "오산 세교파라곤",
+   "units": 1068,
+   "movein": "2026-04",
+   "stops": 6,
+   "control_stops": 206,
+   "window": "+2~+7개월",
+   "early": true,
+   "pre": 355.7,
+   "post": 628.3,
+   "control_ratio": 1.051,
+   "expected": 373.7,
+   "delta": 254.5,
+   "per_hh_daily": 0.238
+  },
+  {
+   "id": "A4",
+   "name": "세교 중흥S-클래스 에듀파크",
+   "units": 1245,
+   "movein": "2024-10",
+   "stops": 6,
+   "control_stops": 248,
+   "window": "+6~+11개월",
+   "early": false,
+   "pre": 76.4,
+   "post": 356.9,
+   "control_ratio": 1.419,
+   "expected": 108.4,
+   "delta": 248.4,
+   "per_hh_daily": 0.2
+  },
+  {
+   "id": "A16",
+   "name": "한신더휴",
+   "units": 844,
+   "movein": "2025-03",
+   "stops": 5,
+   "control_stops": 248,
+   "window": "+6~+11개월",
+   "early": false,
+   "pre": 44.7,
+   "post": 217.8,
+   "control_ratio": 1.081,
+   "expected": 48.3,
+   "delta": 169.5,
+   "per_hh_daily": 0.201
+  },
+  {
+   "id": "A21",
+   "name": "모아미래도",
+   "units": 414,
+   "movein": "2025-04",
+   "stops": 8,
+   "control_stops": 248,
+   "window": "+6~+11개월",
+   "early": false,
+   "pre": 680.6,
+   "post": 873.8,
+   "control_ratio": 1.022,
+   "expected": 695.2,
+   "delta": 178.6,
+   "per_hh_daily": 0.431
+  }
+ ]
+}

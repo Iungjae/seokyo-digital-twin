@@ -263,3 +263,32 @@ body.map-only #stage { width: 100vw; }
 .dlg-acts button:hover { background: var(--bg); }
 .dlg-acts .danger { border-color: var(--bad); background: var(--bad); color: #fff; }
 .dlg-acts .danger:hover { background: #B92B32; }
+
+/* AI 리포트·말로 시나리오 */
+.ai-box { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.ai-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 14px; }
+.ai-btn { height: 34px; padding: 0 14px; border: 1px solid var(--accent); border-radius: var(--r-ctl); background: var(--accent); color: #fff; font-weight: 600; font-size: 13px; white-space: nowrap; }
+.ai-btn:hover { background: var(--accent-ink); }
+.ai-btn:disabled { opacity: .55; cursor: progress; }
+.ai-lines { margin: 0; padding: 0; list-style: none; }
+.ai-lines li { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13.5px; line-height: 1.6; }
+.ai-lines li:first-child { border-top: 0; }
+.ai-refs { display: flex; gap: 3px; align-items: flex-start; }
+.ai-refs abbr { padding: 0 5px; border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent-ink); font-size: 11.5px; font-weight: 700; text-decoration: none; cursor: help; }
+.ai-note, .ai-status { margin: 8px 0 0; font-size: 12.5px; color: var(--mute); }
+.ai-status.err { color: var(--bad); }
+.ai-facts { margin-top: 6px; font-size: 12.5px; color: var(--mute); }
+.ai-facts summary { font-size: 12.5px; font-weight: 600; margin: 0; }
+.ai-facts ol { margin: 6px 0 0; padding-left: 0; list-style: none; }
+.ai-facts li { padding: 2px 0; }
+.nl-examples { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.nl-examples button { height: 30px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--surface); color: var(--mute); font-size: 12.5px; white-space: nowrap; }
+.nl-examples button:hover { border-color: var(--accent); color: var(--accent-ink); }
+.nl-summary { margin: 12px 0 4px; font-size: 14px; font-weight: 700; }
+.nl-ops { margin: 0 0 8px; padding-left: 18px; font-size: 13.5px; line-height: 1.7; }
+.nl-acts { justify-content: flex-end; margin-top: 8px; }
+.param-fit { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 8px; margin: 2px 0 8px; padding: 8px 10px; border-radius: var(--r-sm); background: #F1F3F8; font-size: 13px; }
+.param-fit b { color: var(--accent-ink); }
+.param-fit button { height: 28px; padding: 0 10px; border: 1px solid var(--accent); border-radius: var(--r-sm); background: var(--surface); color: var(--accent-ink); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.param-fit p { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--mute); }
+.ai-note span, .param-fit p span { display: block; }
