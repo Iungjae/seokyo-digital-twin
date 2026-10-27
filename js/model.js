@@ -166,27 +166,22 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
 }
 
 // --- 정책 리포트 (규칙 기반 텍스트. LLM 연동 시 이 구조화 결과를 입력으로 사용) ---
-export function buildReport(res, base) {
+export function buildReport(res) {
+  // 우선순위 단지 3곳과 원인. 입주 세대·종합 점수·시나리오 효과·분야별 점수는 화면 위쪽 요약과 막대에 이미 있어 넣지 않음
   const act = res.items.filter((x) => x.hh > 0).sort((a, b) => b.total - a.total);
-  const lines = [];
-  lines.push(`${res.year}년 기준 입주 ${res.hh.toLocaleString()}세대(약 ${Math.round(res.pop).toLocaleString()}명), 종합 부족도 ${res.summary.total.toFixed(0)}점입니다.`);
-  const dim = [["학교", res.summary.school], ["버스", res.summary.bus], ["공원", res.summary.park]].sort((a, b) => b[1] - a[1]);
-  lines.push(`가장 취약한 분야는 ${dim[0][0]}(${dim[0][1].toFixed(0)}점)이며, 다음은 ${dim[1][0]}(${dim[1][1].toFixed(0)}점)입니다.`);
-  act.slice(0, 3).forEach((x, i) => {
-    const cause = [];
+  const SHORT = { "어린이공원급": "어린이공원", "근린생활권 근린공원": "1만㎡ 공원", "도보권 근린공원": "3만㎡ 공원" };
+  const prio = act.slice(0, 3).map((x) => {
+    const causes = [];
     for (const lv of ["elem", "mid", "high"]) {
       const s = x.school[lv];
-      if (s && s.kids > 5 && s.over > 0.1) cause.push(`${LEVEL_LABEL[lv]}학교 정원 ${(s.over * 100).toFixed(0)}% 초과`);
-      else if (s && s.kids > 5 && s.f && s.d > PARAMS.walkLimit[lv]) cause.push(`${LEVEL_LABEL[lv]}학교까지 ${Math.round(s.d)}m`);
+      if (s && s.kids > 5 && s.over > 0.1) causes.push(`${LEVEL_LABEL[lv]}학교 정원 ${(s.over * 100).toFixed(0)}% 초과`);
+      else if (s && s.kids > 5 && s.f && s.d > PARAMS.walkLimit[lv]) causes.push(`${LEVEL_LABEL[lv]}학교까지 ${Math.round(s.d).toLocaleString()}m`);
     }
-    if (x.bus.f && x.bus.d > PARAMS.walkLimit.bus) cause.push(`정류장까지 ${Math.round(x.bus.d)}m`);
-    if (x.bus.util > 0.8) cause.push(`도보권 ${x.bus.nRoutes}개 노선 첨두 이용률 ${(x.bus.util * 100).toFixed(0)}%(가정 기반)`);
-    for (const tr of x.parkTier) if (tr.short > 0.05) cause.push(`${tr.label} 유치거리 ${tr.reach}m 밖(최근접 ${isFinite(tr.d) ? Math.round(tr.d) + "m" : "없음"})`);
-    lines.push(`우선순위 ${i + 1}: ${x.c.name} (${x.total.toFixed(0)}점) - ${cause.join(", ") || "복합 요인"}`);
+    if (x.bus.f && x.bus.d > PARAMS.walkLimit.bus) causes.push(`정류장까지 ${Math.round(x.bus.d)}m`);
+    if (x.bus.util > 0.8) causes.push(`버스 노선 ${x.bus.nRoutes}개 이용률 ${(x.bus.util * 100).toFixed(0)}%`);
+    for (const tr of x.parkTier) if (tr.short > 0.05) causes.push(`${SHORT[tr.label] || tr.label} ${tr.reach}m 밖 (최근접 ${isFinite(tr.d) ? Math.round(tr.d) + "m" : "없음"})`);
+    return { name: x.c.name.replace(/\(.*$/, ""), score: x.total, causes: causes.length ? causes : ["여러 요인이 조금씩 겹침"] };
   });
-  if (base) {
-    const d = res.summary.total - base.summary.total;
-    if (Math.abs(d) > 0.05) lines.push(`시나리오 효과: 종합 부족도가 현재 계획 대비 ${d < 0 ? "" : "+"}${d.toFixed(1)}점 변화했습니다.`);
-  }
-  return lines;
+  return { prio };
 }
+

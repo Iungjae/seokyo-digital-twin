@@ -1,5 +1,5 @@
 import { CENTER as SAMPLE_CENTER, YEARS, COMPLEXES as SAMPLE_COMPLEXES, FACILITIES as SAMPLE_FAC } from "./data.js";
-import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=capture4";
+import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=guide2";
 
 // 실제 시설(OSM 기반, scripts/build_data.py 산출). 없으면 샘플 사용.
 let FACILITIES = SAMPLE_FAC, facSource = "샘플";
@@ -44,6 +44,8 @@ try {
 const DEFAULTS = JSON.parse(JSON.stringify(PARAMS));   // 가정값 패널로 바꾸기 전의 기본 가정(기준선 계산과 "기본으로" 복원에 사용)
 
 const $ = (s) => document.querySelector(s);
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const lines = (...a) => a.filter(Boolean).map((t) => `<span>${t}</span>`).join("");   // 안내문은 한 문장 = 한 줄
 const state = { year: 2026, layer: "total", tool: null, added: [], plan: {}, newCx: [], labels: false, show: { school: true, park: true, bus: false } };
 
 // 입주계획 편집: plan[id] = { units, year } 로 기존 단지를 덮어쓰고, newCx 는 사용자가 지도에 추가한 신규 단지.
@@ -73,7 +75,6 @@ const TOOLS = {
     ],
   },
 };
-const ICON = { school: "학", bus: "버", park: "공" };   // 목록 표시용 글자
 const PIN_INK = "#3A4150", PIN_NEW = "#3B5BDB";   // 기존 시설은 중립색(점수 색과 겹치지 않게), 사용자가 추가한 시설은 강조색
 const PIN = { school: ["학", PIN_INK], park: ["공", PIN_INK], bus: ["버", PIN_INK] };   // [지도 핀 글자, 색]
 const LAYER_KEY = { total: "total", school: "schoolScore", bus: "busScore", park: "parkScore" };
@@ -173,15 +174,12 @@ function renderPanel(res, base) {
   const bar = (label, v) => `<div class="bar"><b>${label}</b><span><i style="width:${v}%;background:${color(v)}"></i></span><b>${v.toFixed(0)}</b></div>`;
   $("#bars").innerHTML = bar("학교", res.summary.school) + bar("버스", res.summary.bus) + bar("공원", res.summary.park);
 
-  $("#report").innerHTML = buildReport(res, base).map((l) => {
-    const m = l.match(/^(우선순위 \d+): (.+?) \((\d+점)\) - (.*)$/);
-    return m ? `<p class="prio"><b>${m[1]} · ${m[2]}</b> <span class="nw">${m[3]}</span><span class="causes">${m[4].split(", ").join("<br>")}</span></p>`
-      : `<p>${l.replace(/(\S+\(\d+점\)\S*)/g, '<span class="nw">$1</span>')}</p>`;   // "공원(11점)입니다." 같은 어절이 괄호 앞뒤로 갈라지지 않게
-  }).join("");
+  // 정책 리포트: 순위 번호 | 단지명 ··· 점수, 아래에 원인 한 줄씩(모든 줄이 같은 열에서 시작)
+  const rep = buildReport(res);
+  $("#report").innerHTML = `<ol class="prio">${rep.prio.map((p, i) => `<li><span class="rank">${i + 1}</span><div><p class="prio-head"><b>${p.name}</b><span>${p.score.toFixed(0)}점</span></p>${p.causes.map((c) => `<p class="cause">${c}</p>`).join("")}</div></li>`).join("")}</ol>`;
   $("#added").innerHTML = state.added
-    .map((f) => `<li>[${ICON[f.type]}] ${f.name}${f.level ? `(${LEVEL_LABEL[f.level]})` : ""} - ${f.open}년 개통</li>`).join("");
+    .map((f) => `<li><span>${f.name}${f.level ? ` (${LEVEL_LABEL[f.level]})` : ""}</span><span>${f.open}년 개통</span></li>`).join("");
   renderSchools(res, base);
-  renderTrend();
 }
 
 // 상단 요약: 연도 막대(누적 입주 세대 높이 + 종합 부족도 색) = 연도 선택기, 아래에 선택 연도를 문장으로
@@ -192,21 +190,20 @@ function renderOverview(res, base) {
     const y = YEARS[i], on = y === state.year, t = r.summary.total;
     return `<button type="button" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" data-year="${y}" class="tl-col${on ? " on" : ""}"
       aria-label="${y}년, ${r.hh.toLocaleString()}세대, 종합 부족도 ${t.toFixed(0)}점">
-      <span class="tl-score">${t.toFixed(0)}</span>
+      <span class="tl-score">${t.toFixed(0)}점</span>
       <span class="tl-bar"><i style="height:${Math.max(4, (r.hh / maxHH) * 100)}%;background:${color(t)}"></i></span>
       <span class="tl-year">${y}</span></button>`;
   }).join("");
 
+  // 한 문장 = 한 줄. 초과 단지 수는 이름–값 표로
   const d = res.summary.total - base.summary.total;
-  const delta = Math.abs(d) > 0.05 ? ` <em class="${d < 0 ? "down" : "up"}">현재 계획보다 ${Math.abs(d).toFixed(1)}점 ${d < 0 ? "낮음" : "높음"}</em>` : "";
+  const delta = Math.abs(d) > 0.05 ? `<span class="delta ${d < 0 ? "down" : "up"}">현재 계획보다 ${Math.abs(d).toFixed(1)}점 ${d < 0 ? "낮습니다" : "높습니다"}.</span>` : "";
   const { schoolOver: s, busOver: b } = res;
-  const over = !s && !b ? "학교 정원이나 버스 수송력을 넘는 단지는 아직 없습니다."
-    : !s ? `버스 수송력을 넘는 단지가 <b>${b}곳</b> 있고, 학교 정원을 넘는 단지는 없습니다.`
-    : !b ? `학교 정원을 넘는 단지가 <b>${s}곳</b> 있고, 버스 수송력을 넘는 단지는 없습니다.`
-    : `학교 정원을 넘는 단지 <b>${s}곳</b>, 버스 수송력을 넘는 단지 <b>${b}곳</b>.`;
   $("#readout").innerHTML =
-    `<span class="lead-line"><b>${state.year}년</b>까지 <b>${res.hh.toLocaleString()}세대</b>가 입주하면 종합 부족도는 <span class="nw"><i class="dot" style="background:${color(res.summary.total)}"></i><b>${res.summary.total.toFixed(0)}점</b></span>입니다.${delta}</span>` +
-    `<span class="over-line">${over}${s ? ' <small>학교 수치는 학급당 정원 가정에 민감합니다.</small>' : ""}</span>`;
+    `<span class="lead-line"><b>${state.year}년</b>까지 <b>${res.hh.toLocaleString()}세대</b>가 입주합니다.</span>` +
+    `<span class="lead-line">종합 부족도는 <i class="dot" style="background:${color(res.summary.total)}"></i><b>${res.summary.total.toFixed(0)}점</b>입니다.</span>` + delta +
+    `<dl class="over"><div><dt>학교 정원 초과 단지</dt><dd>${s}곳</dd></div><div><dt>버스 수송력 초과 단지</dt><dd>${b}곳</dd></div></dl>` +
+    (s ? `<span class="note">학교 수치는 학급당 정원 가정에 민감합니다.</span>` : "");
 }
 const pickYear = (y) => { state.year = y; $("#year").value = y; refresh(); };
 $("#timeline").addEventListener("click", (e) => { const b = e.target.closest("[data-year]"); if (b) pickYear(+b.dataset.year); });
@@ -228,21 +225,6 @@ function renderSchools(res, base) {
     const w = Math.min(100, s.util * 100);
     return `<div class="bar bar-wide"><b title="${s.name}">${s.name.replace("초등학교", "초").replace("중학교", "중").replace("고등학교", "고").slice(0, 14)}</b><span><i style="width:${w}%;background:${color(Math.max(0, (s.util - 0.7) / 0.5 * 100))}"></i></span><b>${(s.util * 100).toFixed(0)}%${dTxt}</b></div>`;
   }).join("");
-}
-
-function renderTrend() {
-  const base = YEARS.map((y) => evaluate(COMPLEXES, FACILITIES, y, DEFAULTS).summary.total);
-  const scen = YEARS.map((y) => run(y).summary.total);
-  const W = 300, H = 100, pad = 20, max = Math.max(60, ...base, ...scen);
-  const px = (i) => pad + (i * (W - pad * 2)) / (YEARS.length - 1);
-  const py = (v) => H - 20 - (v / max) * (H - 36);
-  const path = (arr) => arr.map((v, i) => `${i ? "L" : "M"}${px(i)},${py(v)}`).join(" ");
-  $("#trend").innerHTML =
-    `<path d="${path(base)}" fill="none" stroke="#B4BBC8" stroke-width="2" stroke-dasharray="4 4" stroke-linecap="round"/>` +
-    `<path d="${path(scen)}" fill="none" stroke="#3B5BDB" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>` +
-    YEARS.map((y, i) => `<text x="${px(i)}" y="${H - 4}" text-anchor="middle">${y}</text>` +
-      `<circle cx="${px(i)}" cy="${py(scen[i])}" r="${y === state.year ? 5.5 : 3.2}" fill="${y === state.year ? "#3B5BDB" : "#fff"}" stroke="#3B5BDB" stroke-width="${y === state.year ? 2.5 : 1.8}"/>`).join("") +
-    `<text class="legend" x="${W - 4}" y="10" text-anchor="end">점선 현재 계획 · 실선 시나리오</text>`;
 }
 
 function refresh() {
@@ -272,7 +254,7 @@ $("#tools").addEventListener("click", (e) => {
   if (state.tool === "seokyo21") { state.year = TOOLS.seokyo21.open; $("#year").value = state.year; }  // 개교 연도로 이동해 효과를 바로 확인
   document.querySelectorAll("#tools button").forEach((x) => x.classList.toggle("on", x.dataset.tool === state.tool));
   map.getContainer().classList.toggle("adding", !!state.tool);
-  $("#toolHint").textContent = state.tool ? "지도를 클릭해 위치를 지정하세요. (다시 누르면 해제)" : "버튼 선택 후 지도를 클릭하면 선택 연도부터 시설이 생깁니다.";
+  $("#toolHint").innerHTML = state.tool ? lines("지도를 클릭해 위치를 정하세요.", "같은 버튼을 다시 누르면 취소됩니다.") : lines("버튼을 고르고 지도를 클릭하면 시설이 생깁니다.", "시설은 선택한 연도부터 열립니다.");
   refresh();
 });
 map.on("click", (e) => {
@@ -295,7 +277,23 @@ $("#undo").addEventListener("click", () => {
   state.added = state.added.filter((f) => f.grp !== g);
   refresh();
 });
-$("#reset").addEventListener("click", () => { state.added = []; state.plan = {}; state.newCx = []; renderPlan(); refresh(); });
+// 되돌릴 수 없는 작업은 앱 안의 확인창으로 묻는다(제목 = 질문, 본문 = 무엇이 지워지는지 + 되돌릴 수 없음)
+function confirmDlg(title, body, okLabel) {
+  const d = $("#confirmDlg");
+  $("#dlgTitle").textContent = title; $("#dlgBody").innerHTML = lines(body, "되돌릴 수 없습니다."); $("#dlgOk").textContent = okLabel;
+  d.showModal();
+  return new Promise((ok) => {
+    const done = (v) => { d.close(); $("#dlgOk").onclick = $("#dlgCancel").onclick = d.oncancel = null; ok(v); };
+    $("#dlgOk").onclick = () => done(true);
+    $("#dlgCancel").onclick = () => done(false);
+    d.oncancel = (e) => { e.preventDefault(); done(false); };   // Esc
+  });
+}
+$("#reset").addEventListener("click", async () => {
+  if (!state.added.length && !Object.keys(state.plan).length && !state.newCx.length) return;
+  if (!(await confirmDlg("시나리오를 초기화하시겠습니까?", "추가한 시설과 입주계획 편집이 모두 지워집니다.", "초기화"))) return;
+  state.added = []; state.plan = {}; state.newCx = []; renderPlan(); refresh();
+});
 
 map.on("zoomend", () => refresh());
 
@@ -314,18 +312,20 @@ const PLAN_YEARS = [2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030];
 function baseUnits(c) { return c.phases.reduce((s2, [, n]) => s2 + n, 0); }
 function baseYear(c) { return c.phases.length ? c.phases[0][0] : 2030; }
 
+// 입주계획 목록용 짧은 이름: 괄호 설명과 모든 단지에 붙는 지역 접두어(오산·오산역·세교)를 뺌. 전체 이름은 title로
+const shortName = (n) => n.replace(/\(.*$/, "").replace(/^((오산역|오산|세교)\s*)+/, "").trim() || n;
 function renderPlan() {
   const row = (id, name, units, year, edited, removable) => `<div class="plan-row${edited ? " edited" : ""}" data-id="${id}">
-    <span class="plan-name" title="${name}">${name.replace(/\(.*$/, "")}</span>
+    <span class="plan-name" title="${name}">${shortName(name)}${removable ? ` <button data-k="del" aria-label="${name} 삭제">삭제</button>` : ""}</span>
     <input type="number" min="0" max="5000" step="50" value="${units}" data-k="units" aria-label="${name} 세대수">
     <select data-k="year" aria-label="${name} 입주 연도">${PLAN_YEARS.map((y) => `<option value="${y}"${y === year ? " selected" : ""}>${y}</option>`).join("")}</select>
-    ${removable ? '<button data-k="del" aria-label="삭제">✕</button>' : "<i></i>"}</div>`;
+    </div>`;
   const rows = COMPLEXES.map((c) => {
     const o = state.plan[c.id];
     return row(c.id, c.name, o ? o.units : baseUnits(c), o ? o.year : baseYear(c), !!o, false);
   });
   const added = state.newCx.map((n) => row(n.id, n.name, n.units, n.year, true, true));
-  $("#planList").innerHTML = rows.join("") + added.join("");
+  $("#planList").innerHTML = `<div class="plan-row plan-head"><span>단지</span><span>세대수</span><span>입주 연도</span></div>` + rows.join("") + added.join("");
 }
 
 $("#planList").addEventListener("change", (e) => {
@@ -347,7 +347,11 @@ $("#planList").addEventListener("click", (e) => {
   state.newCx = state.newCx.filter((x) => x.id !== b.closest(".plan-row").dataset.id);
   renderPlan(); refresh();
 });
-$("#planReset").addEventListener("click", () => { state.plan = {}; state.newCx = []; renderPlan(); refresh(); });
+$("#planReset").addEventListener("click", async () => {
+  if (!Object.keys(state.plan).length && !state.newCx.length) return;
+  if (!(await confirmDlg("입주계획을 초기화하시겠습니까?", "바꾼 세대수·입주 연도와 추가한 단지가 지워집니다.", "초기화"))) return;
+  state.plan = {}; state.newCx = []; renderPlan(); refresh();
+});
 
 // --- 가정값 패널 ---
 const getP = (o, path) => path.split(".").reduce((v, k) => v[k], o);
@@ -393,7 +397,11 @@ $("#paramList").addEventListener("input", (e) => {
   refresh();
 });
 function resetParams() { for (const c of CONTROLS) setP(PARAMS, c.p, getP(DEFAULTS, c.p)); renderParams(); }
-$("#paramReset").addEventListener("click", () => { resetParams(); refresh(); });
+$("#paramReset").addEventListener("click", async () => {
+  if (!Object.keys(diffParams()).length) return;
+  if (!(await confirmDlg("가정값을 기본으로 되돌리시겠습니까?", "바꾼 가정값이 모두 기본값으로 돌아갑니다.", "기본으로"))) return;
+  resetParams(); refresh();
+});
 
 // --- 시나리오 저장·비교 ---
 // 시나리오 = 시설 추가 + 입주계획 편집 + 가정값(기본과 다른 항목만). 브라우저 localStorage에 저장(막혀 있으면 이 세션 메모리에만).
@@ -419,11 +427,11 @@ function renderCompare() {
   if (dirty) rows.push({ name: "현재 작업", cls: "cur", r: run(year) });
   scenarios.forEach((sc, i) => rows.push({ name: sc.name, i, r: evalScenario(sc, year), tip: Object.keys(sc.params || {}).length ? `가정 변경: ${Object.entries(sc.params).map(([k, v]) => `${k}=${v}`).join(", ")}` : "" }));
   const f = (v) => v.toFixed(1);
-  el.innerHTML = `<table><tr><th>${year}년</th><th>종합</th><th>Δ</th><th>학교</th><th>버스</th><th>공원</th><th>세대</th></tr>` +
+  el.innerHTML = `<table><tr><th>${year}년</th><th>종합</th><th>변화</th><th>학교</th><th>버스</th><th>공원</th><th>세대</th></tr>` +
     rows.map((x) => { const d = x.r.summary.total - base; const dc = Math.abs(d) < 0.05 ? "" : d > 0 ? "up" : "down";
       // 저장된 시나리오는 이름·버튼을 머리줄로 올리고 숫자 행 첫 칸은 비워 둠(좁은 화면에서도 이름이 갈라지지 않게)
-      const head = x.i === undefined ? "" : `<tr class="sc-head" title="${x.tip || ""}"><td colspan="7"><b>${x.name}</b><button data-sc="load" data-i="${x.i}">불러오기</button><button data-sc="del" data-i="${x.i}">삭제</button></td></tr>`;
-      return head + `<tr class="${x.cls || ""}" title="${x.tip || ""}"><td>${x.i === undefined ? x.name : ""}</td><td>${f(x.r.summary.total)}</td><td class="${dc}">${dc ? (d > 0 ? "+" : "") + f(d) : "–"}</td><td>${f(x.r.summary.school)}</td><td>${f(x.r.summary.bus)}</td><td>${f(x.r.summary.park)}</td><td>${x.r.hh.toLocaleString()}</td></tr>`; }).join("") + "</table>";
+      const head = x.i === undefined ? "" : `<tr class="sc-head" title="${x.tip || ""}"><td colspan="7"><b>${esc(x.name)}</b><button data-sc="load" data-i="${x.i}">불러오기</button><button data-sc="del" data-i="${x.i}">삭제</button></td></tr>`;
+      return head + `<tr class="${x.cls || ""}" title="${x.tip || ""}"><td>${x.i === undefined ? esc(x.name) : ""}</td><td>${f(x.r.summary.total)}</td><td class="${dc}">${dc ? (d > 0 ? "+" : "") + f(d) : "–"}</td><td>${f(x.r.summary.school)}</td><td>${f(x.r.summary.bus)}</td><td>${f(x.r.summary.park)}</td><td>${x.r.hh.toLocaleString()}</td></tr>`; }).join("") + "</table>";
 }
 
 $("#scSave").addEventListener("click", () => {
@@ -431,17 +439,20 @@ $("#scSave").addEventListener("click", () => {
   scenarios.push({ id: Date.now(), name, added: clone(state.added), plan: clone(state.plan), newCx: clone(state.newCx), params: diffParams() });
   const ok = persistScenarios();
   $("#scName").value = "";
-  $("#scHint").textContent = ok ? `‘${name}’ 저장됨 (이 브라우저에 보관)` : `‘${name}’ 저장됨 (브라우저 저장소를 쓸 수 없어 이번 세션에서만 유지)`;
+  $("#scHint").innerHTML = lines(`‘${esc(name)}’을 저장했습니다.`, ok ? "이 브라우저에만 보관됩니다." : "저장소를 쓸 수 없어 이번 접속에서만 유지됩니다.");
   renderCompare();
 });
-$("#scTable").addEventListener("click", (e) => {
+$("#scTable").addEventListener("click", async (e) => {
   const b = e.target.closest("button[data-sc]"); if (!b) return;
   const i = +b.dataset.i, sc = scenarios[i]; if (!sc) return;
-  if (b.dataset.sc === "del") { scenarios.splice(i, 1); persistScenarios(); renderCompare(); return; }
+  if (b.dataset.sc === "del") {
+    if (!(await confirmDlg(`‘${sc.name}’ 시나리오를 삭제하시겠습니까?`, "저장한 시나리오가 지워집니다.", "삭제"))) return;
+    scenarios.splice(scenarios.indexOf(sc), 1); persistScenarios(); renderCompare(); return;
+  }
   state.added = clone(sc.added); state.plan = clone(sc.plan); state.newCx = clone(sc.newCx);
   resetParams(); for (const [p, v] of Object.entries(sc.params || {})) setP(PARAMS, p, v);
   renderParams(); renderPlan(); refresh();
-  $("#scHint").textContent = `‘${sc.name}’을 불러왔습니다.`;
+  $("#scHint").innerHTML = lines(`‘${esc(sc.name)}’을 불러왔습니다.`);
 });
 
 // --- 최적 입지 추천 ---
@@ -505,7 +516,7 @@ async function recommend() {
     res.push({ ...pts[i], gain: base.summary.total - r.summary.total, dDist,
       dSchool: base.summary.school - r.summary.school, dBus: base.summary.bus - r.summary.bus, dPark: base.summary.park - r.summary.park });
     if (performance.now() - lastYield > 40) {            // 40ms마다만 화면에 양보(타이머는 백그라운드 탭에서 1초로 지연되므로 MessageChannel 사용)
-      $("#recStatus").textContent = `탐색 중… ${i + 1}/${pts.length}`;
+      $("#recStatus").innerHTML = lines(`후보 ${pts.length}곳 중 ${i + 1}곳을 계산했습니다.`);
       await yieldToUi(); lastYield = performance.now();
     }
   }
@@ -521,9 +532,9 @@ async function recommend() {
   $("#recRun").disabled = false;
   const sec = ((performance.now() - t0) / 1000).toFixed(1);
   const max = top[0]?.gain ?? 0;
-  $("#recStatus").textContent = max < 0.05
-    ? `후보 ${pts.length}곳을 ${sec}초 탐색: ${year}년에는 ${REC_LABEL[key]}를 추가해도 부족도가 거의 줄지 않습니다.`
-    : `후보 ${pts.length}곳을 ${sec}초 탐색 (${year}년 기준, 격자 ${REC.step}m, 추천 간격 ${REC.minSep}m 이상)`;
+  $("#recStatus").innerHTML = max < 0.05
+    ? lines(`후보 ${pts.length}곳을 모두 계산했습니다.`, `${year}년에는 ${REC_LABEL[key]}를 더해도 효과가 거의 없습니다.`)
+    : lines(`${year}년 기준 후보 ${pts.length}곳을 ${sec}초 만에 계산했습니다.`, `추천 위치끼리는 ${REC.minSep}m 이상 떨어뜨렸습니다.`);
   renderRec();
 }
 
@@ -532,9 +543,14 @@ function renderRec() {
   const { cands, top, key, year } = recState;
   $("#recList").innerHTML = top.map((c, i) => {
     const nc = nearestComplex(c, year);
-    return `<li><b>${i + 1}위</b> <span class="gain">종합 −${c.gain.toFixed(2)}점</span><br>
-      ${nc.name.replace(/\(.*$/, "")} 인근 <span class="nw">${nc.d}m</span><br><span class="nw">학교 −${c.dSchool.toFixed(2)}</span> · <span class="nw">버스 −${c.dBus.toFixed(2)}</span> · <span class="nw">공원 −${c.dPark.toFixed(2)}</span><br>수요 가중 평균 접근거리 <span class="nw">${c.dDist >= 0 ? "−" : "+"}${Math.abs(Math.round(c.dDist))}m</span>
-      <div class="acts"><button data-rec="view" data-i="${i}">지도에서 보기</button><button data-rec="add" data-i="${i}">시나리오에 추가</button></div></li>`;
+    const parts = [["학교", c.dSchool], ["버스", c.dBus], ["공원", c.dPark]].filter(([, v]) => Math.abs(v) >= 0.01).map(([k, v]) => `${k} −${v.toFixed(1)}점`);
+    const dd = Math.round(c.dDist);
+    return `<li><span class="rank">${i + 1}</span><div>
+      <p class="rec-head"><b>${nc.name.replace(/\(.*$/, "")} 인근</b><span class="gain">종합 −${c.gain.toFixed(1)}점</span></p>
+      <p class="rec-sub">가장 가까운 단지까지 ${nc.d}m</p>
+      ${parts.length ? `<p class="rec-sub">${parts.join(" · ")}</p>` : ""}
+      ${Math.abs(dd) >= 1 ? `<p class="rec-sub">평균 접근거리 ${Math.abs(dd)}m ${dd > 0 ? "단축" : "증가"}</p>` : ""}
+      <div class="acts"><button data-rec="view" data-i="${i}">지도에서 보기</button><button data-rec="add" data-i="${i}">시나리오에 추가</button></div></div></li>`;
   }).join("");
   if (!cands.length) return;
   const max = top[0]?.gain || 1;
@@ -559,7 +575,7 @@ $("#recList").addEventListener("click", (e) => {
   const grp = (state.added.at(-1)?.grp || 0) + 1;
   state.added.push({ ...TOOLS[recState.key], id: `U${grp}-rec`, grp, lat: c.lat, lng: c.lng, open: recState.year });
   recState = { cands: [], top: [], key: null, year: null };
-  $("#recStatus").textContent = "시나리오에 추가했습니다. 추천을 다시 계산하면 이 시설을 반영한 새 후보를 찾습니다.";
+  $("#recStatus").innerHTML = lines("고른 위치를 시나리오에 추가했습니다.", "다시 계산하면 그다음 후보를 찾습니다.");
   refresh(); renderRec();
 });
 
