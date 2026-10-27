@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <!-- AI 중계 서버(ai-worker) 주소. 비어 있으면 AI 기능은 "연결 안 됨"으로 표시된다 -->
 <meta name="seokyo-ai" content="https://seokyo-twin-ai.iungjae48.workers.dev">
-<link rel="stylesheet" href="style.css?v=gr1">
+<link rel="stylesheet" href="style.css?v=tip2">
 </head>
 <body>
 <aside id="panel">
@@ -19,7 +19,7 @@
 
   <!-- 연도 막대가 곧 입주 시점 선택기: 높이 = 누적 입주 세대, 색·숫자 = 그해 종합 부족도. 아래는 선택 연도를 문장으로 요약 -->
   <section class="card overview" aria-label="입주 시점과 요약">
-    <div class="tl-head"><span>입주 시점</span><small title="부족: 정원·수송력을 넘는 곳이 있음 / 주의: 90% 이상인 곳이 있음 / 여유: 그 외">높이 세대 수 · 색 단계</small></div>
+    <div class="tl-head"><span>입주 시점</span><small class="has-tip" tabindex="0" data-tip="막대 높이: 그해까지 입주한 세대 수&#10;막대 색: 단계(초록 여유 · 노랑 주의 · 빨강 부족)&#10;부족: 정원·수송력을 넘는 곳이 있음&#10;주의: 90% 이상인 곳이 있음">높이 세대 수 · 색 단계</small></div>
     <div class="timeline" id="timeline" role="radiogroup" aria-label="입주 시점"></div>
     <input id="year" type="range" min="2026" max="2030" step="1" value="2026" hidden>
     <p class="readout" id="readout" aria-live="polite"></p>
@@ -163,6 +163,6 @@
 </dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="js/app.js?v=gr1"></script>
+<script type="module" src="js/app.js?v=tip2"></script>
 </body>
 </html>

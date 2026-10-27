@@ -159,13 +159,16 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
   // 물리 단위 요약(화면 첫 요약용): 입주 단지가 실제로 쓰는 학교·노선만 센다
   const usedSchools = new Map();
   for (const x of active) for (const lv of ["elem", "mid", "high"]) for (const { f } of x.school[lv].cands || []) usedSchools.set(f.id, f);
-  const schoolsOver = [...usedSchools.values()].map((f) => ({ name: f.name, util: schoolLoad[f.id] / (f.cap * P.schoolCapScale) }))
-    .filter((s) => s.util > 1).sort((a, b) => b.util - a.util);
+  // 툴팁에서 쓰도록 부하·정원도 함께 둔다(가장 붐비는 순)
+  const schoolsUsedList = [...usedSchools.values()].map((f) => ({ name: f.name, load: schoolLoad[f.id], cap: f.cap * P.schoolCapScale, util: schoolLoad[f.id] / (f.cap * P.schoolCapScale) }))
+    .sort((a, b) => b.util - a.util);
+  const schoolsOver = schoolsUsedList.filter((s) => s.util > 1);
   const routeName = {};
   for (const f of stops) for (const r of routesOf(f)) routeName[r.id] = r.name;
   const usedRoutes = new Set(active.flatMap((x) => x.busRoutes || []));
-  const routesOver = [...usedRoutes].map((id) => ({ name: String(routeName[id] ?? id), util: (routeLoad[id] || 0) / routeCap[id] }))
-    .filter((r) => r.util > 1).sort((a, b) => b.util - a.util);
+  const routesUsedList = [...usedRoutes].map((id) => ({ name: String(routeName[id] ?? id), load: routeLoad[id] || 0, cap: routeCap[id], util: (routeLoad[id] || 0) / routeCap[id] }))
+    .sort((a, b) => b.util - a.util);
+  const routesOver = routesUsedList.filter((r) => r.util > 1);
   const parkOut = active.filter((x) => x.parkTier.some((tr) => tr.short > P.parkTolerance)).length;
   // 단계(종합 점수를 읽는 기준): 입주 단지가 쓰는 학교·버스 노선 중 가장 붐비는 곳의 이용률로 정한다.
   // 부족 = 정원·수송력을 넘는 곳이 있음(100% 초과), 주의 = 90% 이상, 여유 = 그 외. 공원은 정원 개념이 없어 제외
@@ -186,7 +189,7 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
     // 학교 초과는 학급당 정원 가정(초 25·중고 29명)에 민감하므로 학교/버스를 나눠 돌려준다. risky = 둘 중 하나라도.
     schoolOver: active.filter((x) => ["elem", "mid", "high"].some((lv) => (x.school[lv] && x.school[lv].over) > 0.0005)).length,
     busOver: active.filter((x) => x.bus.util > 1).length,
-    schoolsOver, schoolsUsed: usedSchools.size, routesOver, routesUsed: usedRoutes.size, parkOut, active: active.length, grade,
+    schoolsOver, schoolsUsed: usedSchools.size, schoolsUsedList, routesOver, routesUsed: usedRoutes.size, routesUsedList, parkOut, active: active.length, grade,
     risky: active.filter((x) => ["elem", "mid", "high"].some((lv) => (x.school[lv] && x.school[lv].over) > 0.0005) || x.bus.util > 1).length,
     schools: open.filter((f) => f.type === "school")
       .map((f) => ({ id: f.id, name: f.name, level: f.level, load: schoolLoad[f.id] || 0, cap: f.cap, util: (schoolLoad[f.id] || 0) / f.cap })),

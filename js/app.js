@@ -188,6 +188,28 @@ function renderPanel(res, base) {
 }
 
 // 상단 요약: 연도 막대(누적 입주 세대 높이 + 종합 부족도 색) = 연도 선택기, 아래에 선택 연도를 문장으로
+// --- 세부 정보 툴팁: data-tip(줄바꿈으로 여러 줄)을 단 요소에 마우스를 올리거나 키보드로 가면 뜬다(지도 원 툴팁과 같은 모양) ---
+const tipEl = Object.assign(document.createElement("div"), { id: "tip", className: "tip", hidden: true });
+tipEl.setAttribute("role", "tooltip");
+document.body.appendChild(tipEl);
+function showTip(t) {
+  tipEl.innerHTML = t.dataset.tip.split("\n").map((l) => `<span>${esc(l)}</span>`).join("");
+  tipEl.hidden = false;
+  const r = t.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  const x = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+  tipEl.style.left = `${x}px`; tipEl.style.top = `${r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8}px`;   // 위에 자리가 없으면 아래
+  t.setAttribute("aria-describedby", "tip");
+}
+const hideTip = () => { tipEl.hidden = true; };
+document.addEventListener("pointerover", (e) => { const t = e.target.closest("[data-tip]"); if (t) showTip(t); });
+document.addEventListener("pointerout", (e) => { const t = e.target.closest("[data-tip]"); if (t && !t.contains(e.relatedTarget)) hideTip(); });
+document.addEventListener("focusin", (e) => { const t = e.target.closest("[data-tip]"); if (t) showTip(t); else hideTip(); });
+document.addEventListener("focusout", hideTip);
+$("#panel").addEventListener("scroll", hideTip);
+// 툴팁 속성 문자열(따옴표 이스케이프, 줄은 \n으로 잇는다)
+const tipAttr = (...ls) => `data-tip="${esc(ls.filter(Boolean).join("\n"))}"`;
+const PARK_SHORT = { "어린이공원급": "어린이공원", "근린생활권 근린공원": "1만㎡ 공원", "도보권 근린공원": "3만㎡ 공원" };
+
 // 단계 이유를 한 문장으로: 가장 붐비는 학교·노선과 그 이용률
 function gradeWhy({ level, util, name }) {
   if (!name) return "입주 단지가 쓰는 학교·버스 노선이 없습니다.";
@@ -201,6 +223,7 @@ function renderOverview(res, base) {
   $("#timeline").innerHTML = byYear.map((r, i) => {
     const y = YEARS[i], on = y === state.year, t = r.summary.total, g = GRADE[r.grade.level];
     return `<button type="button" role="radio" aria-checked="${on}" tabindex="${on ? 0 : -1}" data-year="${y}" class="tl-col${on ? " on" : ""}"
+      ${tipAttr(`${y}년까지 ${r.hh.toLocaleString()}세대 입주`, `종합 부족도 ${t.toFixed(0)}점 · ${r.grade.level}`, gradeWhy(r.grade))}
       aria-label="${y}년, ${r.hh.toLocaleString()}세대, 종합 부족도 ${t.toFixed(0)}점, ${r.grade.level} 단계">
       <span class="tl-score">${t.toFixed(0)}점</span>
       <span class="tl-grade ${g.cls}">${r.grade.level}</span>
@@ -210,19 +233,29 @@ function renderOverview(res, base) {
 
   // 첫 요약은 물리 단위(정원을 넘는 학교, 이용률 100%를 넘는 노선, 기준 밖 단지)가 주인공. 종합 점수는 보조
   const pct = (u) => `${Math.round(u * 100)}%`;
-  const top3 = (arr, f) => arr.slice(0, 3).map(f).join(" · ") + (arr.length > 3 ? ` 외 ${arr.length - 3}` : "");
-  const row = (label, val, detail) => `<div><dt>${label}</dt><dd>${val}</dd>${detail ? `<p class="over-detail">${detail}</p>` : ""}</div>`;
+  // 값("3곳" 등)에 마우스를 올리면 어느 학교·노선·단지인지 툴팁으로(지도 원과 같은 방식)
+  const row = (label, val, tips) => `<div><dt>${label}</dt><dd><span class="has-tip" tabindex="0" ${tipAttr(...tips)}>${val}</span></dd></div>`;
   const so = res.schoolsOver, ro = res.routesOver;
   const short = (n) => n.replace("등학교", "").replace("학교", "");
+  const n0 = (v) => Math.round(v).toLocaleString();
+  const sTop = res.schoolsUsedList[0], rTop = res.routesUsedList[0];
+  const schoolTips = so.length ? so.map((x) => `${short(x.name)} ${pct(x.util)} (학생 약 ${n0(x.load)}명 / 정원 ${n0(x.cap)}명)`)
+    : sTop ? ["모든 배정 학교가 정원 안입니다.", `가장 붐비는 곳: ${short(sTop.name)} ${pct(sTop.util)}`] : ["배정 학교가 없습니다."];
+  const routeTips = ro.length ? ro.map((x) => `${x.name}번 ${pct(x.util)} (출퇴근 1시간 수요 ${n0(x.load)}명 / 수송력 ${n0(x.cap)}명)`)
+    : rTop ? ["모든 노선이 수송력 안입니다.", `가장 붐비는 노선: ${rTop.name}번 ${pct(rTop.util)}`] : ["도보권 노선이 없습니다."];
+  const parkOutItems = res.items.filter((x) => x.hh > 0 && x.parkTier.some((tr) => tr.short > PARAMS.parkTolerance));
+  // 한 단지가 여러 기준을 벗어나면 기준마다 한 줄(한 줄이 길어져 꺾이지 않게)
+  const parkTips = parkOutItems.length ? parkOutItems.flatMap((x) => x.parkTier.filter((tr) => tr.short > PARAMS.parkTolerance).map((tr) => `${shortName(x.c.name)}: ${PARK_SHORT[tr.label] || tr.label} ${isFinite(tr.d) ? Math.round(tr.d) + "m" : "없음"}(기준 ${tr.reach}m)`))
+    : ["모든 단지가 공원 유치거리 안입니다."];
   const d = res.summary.total - base.summary.total;
   const delta = Math.abs(d) > 0.05 ? ` <span class="delta ${d < 0 ? "down" : "up"}">현재 계획보다 ${Math.abs(d).toFixed(1)}점 ${d < 0 ? "낮음" : "높음"}</span>` : "";
   $("#readout").innerHTML =
     `<span class="lead-line"><b>${state.year}년</b>까지 <b>${res.hh.toLocaleString()}세대</b>가 입주합니다.</span>` +
     `<dl class="over">` +
-    row("정원을 넘는 배정 학교", so.length ? `${so.length}곳` : "없음", so.length ? top3(so, (x) => `${short(x.name)} ${pct(x.util)}`) : "") +
-    row("이용률 100%를 넘는 버스 노선", ro.length ? `${ro.length}개` : "없음", ro.length ? top3(ro, (x) => `${x.name}번 ${pct(x.util)}`) : "") +
-    row("공원 유치거리 밖 단지", `${res.parkOut}곳 / ${res.active}곳`, "") + `</dl>` +
-    `<span class="total-line">종합 부족도 <b>${res.summary.total.toFixed(0)}점</b> <span class="grade-tag ${GRADE[res.grade.level].cls}" title="${GRADE_TIP}">${res.grade.level}</span>${delta}</span>` +
+    row("정원을 넘는 배정 학교", so.length ? `${so.length}곳` : "없음", schoolTips) +
+    row("이용률 100%를 넘는 버스 노선", ro.length ? `${ro.length}개` : "없음", routeTips) +
+    row("공원 유치거리 밖 단지", `${res.parkOut}곳 / ${res.active}곳`, parkTips) + `</dl>` +
+    `<span class="total-line">종합 부족도 <b>${res.summary.total.toFixed(0)}점</b> <span class="grade-tag ${GRADE[res.grade.level].cls}" tabindex="0" ${tipAttr(...GRADE_TIP.split(" / "))}>${res.grade.level}</span>${delta}</span>` +
     `<span class="grade-why">${gradeWhy(res.grade)}</span>` +
     (so.length ? `<span class="note">학교 정원은 학급 수 × 학급당 25·29명으로 가정했습니다.</span>` : "");
 }
@@ -244,11 +277,12 @@ function renderSchools(res, base) {
     const d = b ? s.util - b.util : 0;
     const dTxt = Math.abs(d) > 0.005 ? ` <em class="${d < 0 ? "down" : "up"}">${d < 0 ? "▼" : "▲"}${Math.abs(d * 100).toFixed(0)}p</em>` : "";
     const w = Math.min(100, s.util * 100);
-    return `<div class="bar bar-wide"><b title="${s.name}">${s.name.replace("초등학교", "초").replace("중학교", "중").replace("고등학교", "고").slice(0, 14)}</b><span><i style="width:${w}%;background:${color(Math.max(0, (s.util - 0.7) / 0.5 * 100))}"></i></span><b>${(s.util * 100).toFixed(0)}%${dTxt}</b></div>`;
+    return `<div class="bar bar-wide" tabindex="0" ${tipAttr(s.name, `학생 약 ${Math.round(s.load).toLocaleString()}명 / 정원 ${Math.round(s.cap).toLocaleString()}명`, Math.abs(d) > 0.005 ? `시나리오로 ${Math.abs(d * 100).toFixed(0)}%p ${d < 0 ? "내려감" : "올라감"}` : "")}><b>${s.name.replace("초등학교", "초").replace("중학교", "중").replace("고등학교", "고").slice(0, 14)}</b><span><i style="width:${w}%;background:${color(Math.max(0, (s.util - 0.7) / 0.5 * 100))}"></i></span><b>${(s.util * 100).toFixed(0)}%${dTxt}</b></div>`;
   }).join("");
 }
 
 function refresh() {
+  hideTip();   // 다시 그리면 툴팁이 가리키던 요소가 사라지므로 닫는다
   renderCompare();
   const res = run(state.year);
   const base = run(state.year, false);
