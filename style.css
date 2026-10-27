@@ -225,6 +225,9 @@ body.map-only .hud-year { display: block; }
 .hud-legend { left: 16px; bottom: 34px; padding: 10px 14px 10px; width: 200px; }
 .hud-legend .grad { display: block; height: 8px; margin: 8px 0 4px; border-radius: 999px; background: linear-gradient(90deg, #2FB67C, #F5B84B 50%, #E5484D); }
 .legend-scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--faint); }
+.legend-steps { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--mute); }
+.legend-steps span { display: inline-flex; align-items: center; gap: 5px; }
+.legend-steps i { width: 10px; height: 10px; border-radius: 50%; }
 
 /* 핀(시설) */
 .pin { width: 22px; height: 22px; border-radius: 50%; background: var(--c); color: #fff; font-size: 11.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: var(--shadow-pin); }
@@ -319,3 +322,4 @@ body.map-only #stage { width: 100vw; }
 .help { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 2px; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--surface); color: var(--mute); font-size: 11px; font-weight: 700; line-height: 1; vertical-align: 1px; cursor: help; }
 .help:hover, .help:focus-visible { border-color: var(--accent); color: var(--accent-ink); }
 .hint:empty { display: none; }
+.legend-steps[hidden] { display: none; }

@@ -1,5 +1,5 @@
 import { CENTER as SAMPLE_CENTER, YEARS, COMPLEXES as SAMPLE_COMPLEXES, FACILITIES as SAMPLE_FAC } from "./data.js";
-import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=fix1";
+import { evaluate, buildReport, LEVEL_LABEL, PARAMS, dist } from "./model.js?v=fix2";
 
 // 실제 시설(OSM 기반, scripts/build_data.py 산출). 없으면 샘플 사용.
 let FACILITIES = SAMPLE_FAC, facSource = "샘플";
@@ -151,11 +151,14 @@ function draw(res) {
       continue;
     }
     const score = x[LAYER_KEY[state.layer]];
+    // 종합·학교·버스는 단지별 단계 색(가장 붐비는 학교·노선 이용률, 상단 단계와 같은 규칙). 공원은 정원 개념이 없어 점수 색
+    const g = state.layer === "park" ? null : x.grade[state.layer];
+    const fill = g ? GRADE[g.level].c : color(score);
     // 팝업: 넓은 화면은 위쪽 연도 상자(HUD) 아래로 자동 이동, 좁은 화면은 지도 높이에 맞춰 안에서 스크롤(HUD는 팝업이 열린 동안 숨김)
     L.circle([x.c.lat, x.c.lng], {
-      radius: 70 + Math.sqrt(x.hh) * 3.2, color: "#fff", fillColor: color(score), fillOpacity: 0.78, weight: 2.5,
+      radius: 70 + Math.sqrt(x.hh) * 3.2, color: "#fff", fillColor: fill, fillOpacity: 0.78, weight: 2.5,
     }).bindPopup(popup(x), narrow() ? { minWidth: 260, maxWidth: 300, maxHeight: Math.max(200, map.getSize().y - 70), autoPanPaddingTopLeft: [48, 10], autoPanPaddingBottomRight: [8, 8] } : { minWidth: 300, maxWidth: 340, autoPanPaddingTopLeft: [20, 110] }).bindTooltip(
-      state.labels ? `${x.c.name.split("(")[0].replace("오산 세교", "").replace("세교 ", "").slice(0, 11)} ${score.toFixed(0)}` : `${x.c.name} ${score.toFixed(0)}점`,
+      state.labels ? `${x.c.name.split("(")[0].replace("오산 세교", "").replace("세교 ", "").slice(0, 11)} ${g ? g.level : score.toFixed(0)}` : g ? `${x.c.name} · ${g.level}(${g.name.replace("등학교", "").replace("학교", "")} ${Math.round(g.util * 100)}%)` : `${x.c.name} ${score.toFixed(0)}점`,
       state.labels ? { permanent: true, direction: "top", offset: [0, -4], className: "cx-label" } : {}
     ).addTo(complexLayer);
   }
@@ -182,7 +185,8 @@ function draw(res) {
 function renderPanel(res, base) {
   renderOverview(res, base);
   $("#mapYear").textContent = state.year;
-  $("#legendTitle").textContent = { total: "종합 부족도", school: "학교 부족도", bus: "버스 부족도", park: "공원 부족도" }[state.layer];
+  $("#legendTitle").textContent = { total: "단지별 단계", school: "단지별 단계(학교)", bus: "단지별 단계(버스)", park: "공원 부족도" }[state.layer];
+  $("#legendGrad").hidden = state.layer !== "park"; $("#legendSteps").hidden = state.layer === "park";
 
   const bar = (label, v) => `<div class="bar"><b>${label}</b><span><i style="width:${v}%;background:${color(v)}"></i></span><b>${v.toFixed(0)}</b></div>`;
   $("#bars").innerHTML = bar("학교", res.summary.school) + bar("버스", res.summary.bus) + bar("공원", res.summary.park);
@@ -447,7 +451,7 @@ const getP = (o, path) => path.split(".").reduce((v, k) => v[k], o);
 const setP = (o, path, val) => { const ks = path.split("."); const last = ks.pop(); ks.reduce((v, k) => v[k], o)[last] = val; };
 const CONTROLS = [
   { grp: "수요", p: "persons", label: "세대당 가구원(명)", min: 2, max: 3.5, step: 0.1, d: 1 },
-  { p: "kids.elem", label: "초등 학령인구 / 세대", min: 0.05, max: 0.3, step: 0.01, d: 2 },
+  { p: "kids.elem", label: "초등 학령인구 / 세대", min: 0.05, max: 0.5, step: 0.01, d: 2 },
   { p: "kids.mid", label: "중등 학령인구 / 세대", min: 0.02, max: 0.15, step: 0.01, d: 2 },
   { p: "kids.high", label: "고등 학령인구 / 세대", min: 0.02, max: 0.15, step: 0.01, d: 2 },
   { grp: "학교", p: "schoolCapScale", label: "학교 정원 배율", min: 0.8, max: 1.3, step: 0.05, d: 2 },

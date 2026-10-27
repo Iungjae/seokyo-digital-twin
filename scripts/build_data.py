@@ -13,12 +13,17 @@ SI = {r["name"]: r for r in csv.DictReader((ROOT / "data/raw/schoolinfo_osan_202
 NEIS = {x["name"]: x for x in json.loads((ROOT / "data/neis_schools.json").read_text(encoding="utf-8"))}  # 개교연도용
 
 
+# 특성화고: 통학권 배정 대상이 아니므로 모델이 신규 학생을 배정하지 않는다(model.js의 vocational)
+VOCATIONAL = {"경기오산소프트웨어고등학교", "오산정보고등학교"}
+
+
 def school(id_, lv, name, lat, lng, src):
     r = SI[name]
     cls, stu = int(r["classes"]), int(r["students"])
     founded = NEIS.get(name, {}).get("founded")
     return dict(id=id_, type="school", level=lv, name=name, lat=lat, lng=lng, classes=cls, enrolled=stu,
-                cap=cls * CAP_PER_CLASS[lv], open=int(founded[:4]) if founded else 2020, est=True, src=src)
+                cap=cls * CAP_PER_CLASS[lv], open=int(founded[:4]) if founded else 2020, est=True, src=src,
+                **({"vocational": True} if name in VOCATIONAL else {}))
 
 
 OSMP_PATH = ROOT / "data/osm_parks.json"   # OSM 경계 도형 기반 면적(fetch_osm_parks.py)

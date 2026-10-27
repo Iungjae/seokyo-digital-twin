@@ -7,7 +7,9 @@ export const PARAMS = {
   // 예전에는 연도만 봐서 2026년 4~10월 입주 단지(파라곤·라프리미어·금강펜테리움 2,828세대)의 학생이 현원에도 신규 수요에도 빠졌음
   schoolBaseYM: "2026-03",
   persons: 2.8, // 세대당 가구원
-  kids: { elem: 0.17, mid: 0.07, high: 0.07 }, // 세대당 학령인구
+  // 세대당 학령인구. 초등은 실측: 이 단지들과 함께 개교한 세담초(2024)·마루초(2025)의 2026 현원 1,317명 ÷ 학구 안 입주 세대 3,400 = 0.39
+  // (예전 가정 0.17은 백테스트에서도 낮게 나왔음, docs/backtest.md). 학구에 다른 주택이 섞여 있으면 과대일 수 있음. 중·고는 기존 시가지와 섞여 실측 불가 → 가정
+  kids: { elem: 0.39, mid: 0.07, high: 0.07 },
   walkLimit: { elem: 1000, mid: 1500, high: 2000, bus: 400, park: 800 }, // m
   // 세대당 첨두시 버스 이용객. 경기도 정류소별 승하차(2023-01~2026-08)로 추정한 값(scripts/fit_bus_rate.py → data/bus_rate.json):
   // 세대당 하루 승차 0.216회 × 첨두 1시간 비중 15%(가정) = 0.032. 예전 근거 없는 가정 0.3은 약 10배 과대였음(docs/ai.md)
@@ -37,6 +39,8 @@ export const PARAMS = {
 export const LEVEL_LABEL = { elem: "초등", mid: "중등", high: "고등" };
 
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+// 단계: 정원·수송력 대비 이용률 100% 초과 = 부족, 90% 이상 = 주의
+export const levelOf = (u) => (u > 1 ? "부족" : u >= 0.9 ? "주의" : "여유");
 const pressure = (u, r) => clamp((u - r.from) / (r.to - r.from));
 
 export function dist(a, b) {
@@ -80,7 +84,7 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
   for (const f of open) if (f.type === "school") schoolLoad[f.id] = f.enrolled || 0;
   const byName = new Map(open.filter((f) => f.type === "school").map((f) => [f.name, f]));
   for (const lv of ["elem", "mid", "high"]) {
-    const list = open.filter((f) => f.type === "school" && f.level === lv);
+    const list = open.filter((f) => f.type === "school" && f.level === lv && !f.vocational);   // 특성화고는 통학권 배정 대상이 아님
     const addedList = list.filter((f) => f.added);
     for (const x of active) {
       const kids = x.hh * P.kids[lv];
@@ -103,7 +107,8 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
       const capSum = cands.reduce((s2, f) => s2 + f.cap, 0) || 1;
       const ws = cands.map((f) => ({ f, w: f.cap / capSum }));
       const prim = nearest(x.c, cands);
-      x.school[lv] = { kids, f: prim.f, d: ws.reduce((s2, c) => s2 + c.w * dist(x.c, c.f), 0), cands: ws, zoned: zoned.length > 0, temp };
+      // 통학거리 = 배정 후보 중 가장 가까운 학교까지(학교군 여러 곳의 평균 거리는 먼 학교가 섞여 실제보다 길게 나옴). 학생 부하는 후보에 정원 비율로 나눔
+      x.school[lv] = { kids, f: prim.f, d: prim.f ? prim.d : 0, cands: ws, zoned: zoned.length > 0, temp };
       for (const { f, w } of ws) schoolLoad[f.id] += kidsNew * w;
     }
   }
@@ -189,7 +194,15 @@ export function evaluate(complexes, facilities, year, P = PARAMS) {
     ...[...usedSchools.values()].map((f) => ({ name: f.name, util: schoolLoad[f.id] / (f.cap * P.schoolCapScale) })),
     ...[...usedRoutes].map((id) => ({ name: `${routeName[id] ?? id}번 버스`, util: (routeLoad[id] || 0) / routeCap[id] })),
   ].sort((a, b) => b.util - a.util)[0] || { name: "", util: 0 };
-  const grade = { level: busiest.util > 1 ? "부족" : busiest.util >= 0.9 ? "주의" : "여유", util: busiest.util, name: busiest.name };
+  const grade = { level: levelOf(busiest.util), util: busiest.util, name: busiest.name };
+  // 단지별 단계(지도 색): 그 단지가 쓰는 학교·노선 중 가장 붐비는 곳의 이용률. 상단 단계와 같은 규칙
+  const worst = (arr) => arr.sort((a, b) => b.util - a.util)[0] || { name: "", util: 0 };
+  for (const x of active) {
+    const sc = worst(["elem", "mid", "high"].flatMap((lv) => (x.school[lv].cands || []).map(({ f }) => ({ name: f.name, util: schoolLoad[f.id] / (f.cap * P.schoolCapScale) }))));
+    const bu = worst((x.busRoutes || []).map((id) => ({ name: `${routeName[id] ?? id}번 버스`, util: (routeLoad[id] || 0) / routeCap[id] })));
+    const g = (w) => ({ level: levelOf(w.util), util: w.util, name: w.name });
+    x.grade = { school: g(sc), bus: g(bu), total: g(sc.util >= bu.util ? sc : bu) };
+  }
 
   const pop = active.reduce((s, x) => s + x.pop, 0);
   const avg = (k) => (pop ? active.reduce((s, x) => s + x[k] * x.pop, 0) / pop : 0);

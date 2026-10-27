@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <!-- AI 중계 서버(ai-worker) 주소. 비어 있으면 AI 기능은 "연결 안 됨"으로 표시된다 -->
 <meta name="seokyo-ai" content="https://seokyo-twin-ai.iungjae48.workers.dev">
-<link rel="stylesheet" href="style.css?v=fix1">
+<link rel="stylesheet" href="style.css?v=fix2">
 </head>
 <body>
 <aside id="panel">
@@ -147,8 +147,8 @@
   <div class="hud hud-year" aria-hidden="true"><small>입주 시점</small><b id="mapYear">2026</b></div>
   <div class="hud hud-legend" aria-hidden="true">
     <small id="legendTitle">종합 부족도</small>
-    <i class="grad"></i>
-    <div class="legend-scale"><span>양호</span><span>부족</span></div>
+    <div id="legendGrad" hidden><i class="grad"></i><div class="legend-scale"><span>양호</span><span>부족</span></div></div>
+    <div id="legendSteps" class="legend-steps"><span><i style="background:#2FB67C"></i>여유</span><span><i style="background:#F5B84B"></i>주의</span><span><i style="background:#E5484D"></i>부족</span></div>
   </div>
 </main>
 
@@ -160,6 +160,6 @@
 </dialog>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="js/app.js?v=fix1"></script>
+<script type="module" src="js/app.js?v=fix2"></script>
 </body>
 </html>
