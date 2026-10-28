@@ -186,8 +186,6 @@ details[open] > summary::before { transform: rotate(90deg); }
 .src p { margin: 0; }
 .src p + p { margin-top: 8px; }
 .src a { color: var(--accent-ink); }
-.src .legal { margin-top: 8px; }   /* p + p와 같은 값(명시) */
-.src .legal a { margin-right: 12px; font-weight: 600; }
 
 /* ---------- 지도 ---------- */
 #stage { position: relative; flex: 1; min-width: 0; height: 100vh; }
